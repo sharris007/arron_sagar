@@ -39,7 +39,7 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('Database tables initialized nice');
+    console.log('Database tables initialized');
 
     connection.release();
     return true;
