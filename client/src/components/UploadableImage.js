@@ -555,17 +555,17 @@ function parseStyledHtml(html) {
   };
 }
 
-function buildDbOverlay(imageText, textPosition) {
-  if (!imageText || !textPosition) return null;
+function buildDbOverlay(imageText, imageTextHtml, textPosition) {
+  if ((!imageText && !imageTextHtml) || !textPosition) return null;
   const gridKey = labelToGrid[textPosition];
   if (!gridKey) return null;
-  return { html: imageText, pos: gridKey };
+  return { text: imageText || '', html: imageTextHtml || null, pos: gridKey };
 }
 
 function UploadableImage({
   children, style, className, display, width, height, shrink,
   onReplace, onDelete, storageKey, onMove, imageIndex, imageTotal, uploadUrl, hasImage = true,
-  imageText, imagePosition, onSaveText, onDeleteText,
+  imageText, imageTextHtml, imagePosition, onSaveText, onDeleteText,
 }) {
   const useDb = typeof onSaveText === 'function';
   const fileRef = useRef(null);
@@ -595,7 +595,7 @@ function UploadableImage({
   const isFirst = imageIndex === 0;
   const isLast = imageIndex === imageTotal - 1;
 
-  const dbOverlay = useDb ? buildDbOverlay(imageText, imagePosition) : null;
+  const dbOverlay = useDb ? buildDbOverlay(imageText, imageTextHtml, imagePosition) : null;
 
   const overlayKey = !useDb && storageKey ? `overlay_${storageKey}` : null;
   const [lsOverlay, setLsOverlay] = useState(() => {
@@ -615,8 +615,9 @@ function UploadableImage({
   const saveOverlay = async (item) => {
     if (useDb) {
       const posLabel = gridToLabel[item.pos] || item.pos;
+      const plainText = item.text;
       const html = buildStyledHtml(item.text, item);
-      await onSaveText(html, posLabel);
+      await onSaveText(plainText, html, posLabel);
     } else {
       setLsOverlay(item);
       if (overlayKey) localStorage.setItem(overlayKey, JSON.stringify(item));
@@ -649,9 +650,10 @@ function UploadableImage({
     e.stopPropagation();
     setMenuOpen(false);
     if (overlay) {
-      if (overlay.html) {
-        const parsed = parseStyledHtml(overlay.html);
-        setEditText(parsed.text);
+      const htmlSrc = overlay.html || null;
+      if (htmlSrc) {
+        const parsed = parseStyledHtml(htmlSrc);
+        setEditText(overlay.text || parsed.text);
         setSelectedCell(overlay.pos || null);
         setFontSize(parsed.fontSize);
         setFontFamily(parsed.fontFamily);

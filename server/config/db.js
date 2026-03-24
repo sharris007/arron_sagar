@@ -97,6 +97,7 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         section VARCHAR(20) NOT NULL DEFAULT 'carousel',
         image_text TEXT,
+        image_text_html TEXT,
         text_position VARCHAR(50),
         title VARCHAR(255),
         description TEXT
@@ -106,6 +107,7 @@ async function initDatabase() {
     // Ensure new columns exist on tables that were migrated from carousel_items
     await addColumnSafe(connection, 'images', 'section', "VARCHAR(20) NOT NULL DEFAULT 'carousel'");
     await addColumnSafe(connection, 'images', 'image_text', 'TEXT');
+    await addColumnSafe(connection, 'images', 'image_text_html', 'TEXT');
     await addColumnSafe(connection, 'images', 'text_position', 'VARCHAR(50)');
     await addColumnSafe(connection, 'images', 'title', 'VARCHAR(255)');
     await addColumnSafe(connection, 'images', 'description', 'TEXT');

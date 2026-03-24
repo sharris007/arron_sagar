@@ -606,15 +606,15 @@ function Testimonials() {
     }
   };
 
-  const handleSaveText = async (itemId, htmlText, posLabel) => {
+  const handleSaveText = async (itemId, plainText, htmlText, posLabel) => {
     try {
       await fetch(`/api/images/${itemId}/text`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_text: htmlText, text_position: posLabel }),
+        body: JSON.stringify({ image_text: plainText, image_text_html: htmlText, text_position: posLabel }),
       });
       setItems(prev => prev.map(it =>
-        it.id === itemId ? { ...it, image_text: htmlText, text_position: posLabel } : it
+        it.id === itemId ? { ...it, image_text: plainText, image_text_html: htmlText, text_position: posLabel } : it
       ));
     } catch (err) {
       console.error('Text save failed:', err);
@@ -625,7 +625,7 @@ function Testimonials() {
     try {
       await fetch(`/api/images/${itemId}/text`, { method: 'DELETE' });
       setItems(prev => prev.map(it =>
-        it.id === itemId ? { ...it, image_text: null, text_position: null } : it
+        it.id === itemId ? { ...it, image_text: null, image_text_html: null, text_position: null } : it
       ));
     } catch (err) {
       console.error('Text delete failed:', err);
@@ -685,8 +685,9 @@ function Testimonials() {
                   imageIndex={idx}
                   imageTotal={totalSlides}
                   imageText={item.image_text}
+                  imageTextHtml={item.image_text_html}
                   imagePosition={item.text_position}
-                  onSaveText={(htmlText, posLabel) => handleSaveText(item.id, htmlText, posLabel)}
+                  onSaveText={(plainText, htmlText, posLabel) => handleSaveText(item.id, plainText, htmlText, posLabel)}
                   onDeleteText={() => handleDeleteText(item.id)}
                 >
                   <SlideImage src={item.file_path} alt="Wedding" />
@@ -706,8 +707,9 @@ function Testimonials() {
                   imageIndex={idx}
                   imageTotal={totalSlides}
                   imageText={item.image_text}
+                  imageTextHtml={item.image_text_html}
                   imagePosition={item.text_position}
-                  onSaveText={(htmlText, posLabel) => handleSaveText(item.id, htmlText, posLabel)}
+                  onSaveText={(plainText, htmlText, posLabel) => handleSaveText(item.id, plainText, htmlText, posLabel)}
                   onDeleteText={() => handleDeleteText(item.id)}
                 >
                   <QuoteBox>

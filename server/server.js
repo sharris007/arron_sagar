@@ -133,6 +133,7 @@ app.get('/api/hero', async (req, res) => {
         id: row.id,
         file_path: row.file_path,
         image_text: row.image_text || null,
+        image_text_html: row.image_text_html || null,
         text_position: row.text_position || null,
         title: row.title || null,
         description: row.description || null,
@@ -200,13 +201,13 @@ app.delete('/api/hero', async (req, res) => {
 
 app.put('/api/images/:id/text', async (req, res) => {
   const { id } = req.params;
-  const { image_text, text_position } = req.body;
+  const { image_text, image_text_html, text_position } = req.body;
   const pool = getPool();
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
     await pool.query(
-      'UPDATE images SET image_text = ?, text_position = ? WHERE id = ?',
-      [image_text || null, text_position || null, id]
+      'UPDATE images SET image_text = ?, image_text_html = ?, text_position = ? WHERE id = ?',
+      [image_text || null, image_text_html || null, text_position || null, id]
     );
     res.json({ success: true });
   } catch (err) {
@@ -221,7 +222,7 @@ app.delete('/api/images/:id/text', async (req, res) => {
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
     await pool.query(
-      'UPDATE images SET image_text = NULL, text_position = NULL WHERE id = ?',
+      'UPDATE images SET image_text = NULL, image_text_html = NULL, text_position = NULL WHERE id = ?',
       [id]
     );
     res.json({ success: true });

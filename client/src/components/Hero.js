@@ -65,6 +65,7 @@ function Hero() {
   const [heroId, setHeroId] = useState(null);
   const [heroPath, setHeroPath] = useState(null);
   const [heroText, setHeroText] = useState(null);
+  const [heroTextHtml, setHeroTextHtml] = useState(null);
   const [heroPosition, setHeroPosition] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -75,6 +76,7 @@ function Hero() {
       setHeroId(data.id || null);
       setHeroPath(data.file_path || null);
       setHeroText(data.image_text || null);
+      setHeroTextHtml(data.image_text_html || null);
       setHeroPosition(data.text_position || null);
     } catch (err) {
       console.error('Failed to load hero:', err);
@@ -96,21 +98,23 @@ function Hero() {
       setHeroId(null);
       setHeroPath(null);
       setHeroText(null);
+      setHeroTextHtml(null);
       setHeroPosition(null);
     } catch (err) {
       console.error('Hero delete failed:', err);
     }
   };
 
-  const handleSaveText = async (htmlText, posLabel) => {
+  const handleSaveText = async (plainText, htmlText, posLabel) => {
     if (!heroId) return;
     try {
       await fetch(`/api/images/${heroId}/text`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_text: htmlText, text_position: posLabel }),
+        body: JSON.stringify({ image_text: plainText, image_text_html: htmlText, text_position: posLabel }),
       });
-      setHeroText(htmlText);
+      setHeroText(plainText);
+      setHeroTextHtml(htmlText);
       setHeroPosition(posLabel);
     } catch (err) {
       console.error('Hero text save failed:', err);
@@ -122,6 +126,7 @@ function Hero() {
     try {
       await fetch(`/api/images/${heroId}/text`, { method: 'DELETE' });
       setHeroText(null);
+      setHeroTextHtml(null);
       setHeroPosition(null);
     } catch (err) {
       console.error('Hero text delete failed:', err);
@@ -140,6 +145,7 @@ function Hero() {
       onDelete={handleDelete}
       hasImage={!!heroPath}
       imageText={heroText}
+      imageTextHtml={heroTextHtml}
       imagePosition={heroPosition}
       onSaveText={handleSaveText}
       onDeleteText={handleDeleteText}
