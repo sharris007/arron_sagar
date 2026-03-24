@@ -62,8 +62,8 @@ function uploadToCloudinary(buffer, folder, originalName, { title, description }
       `AppName=${escapeCtx(APP_NAME)}`,
       `Environment=${escapeCtx(ENVIRONMENT)}`,
     ];
-    if (title) ctxParts.push(`title=${escapeCtx(title)}`);
-    if (description) ctxParts.push(`description=${escapeCtx(description)}`);
+    if (title) ctxParts.push(`caption=${escapeCtx(title)}`);
+    if (description) ctxParts.push(`alt=${escapeCtx(description)}`);
 
     const stream = cloudinary.uploader.upload_stream(
       {
