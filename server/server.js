@@ -78,23 +78,6 @@ function uploadToCloudinary(buffer, folder, originalName, { title, description }
   });
 }
 
-function extractPublicId(url) {
-  if (!url || !url.includes('cloudinary.com')) return null;
-  const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
-  return match ? match[1] : null;
-}
-
-async function deleteFromCloudinary(url) {
-  const publicId = extractPublicId(url);
-  if (!publicId) return;
-  try {
-    await cloudinary.uploader.destroy(publicId);
-    console.log('Cloudinary deleted:', publicId);
-  } catch (err) {
-    console.error('Cloudinary delete failed:', err.message);
-  }
-}
-
 // ── Static file serving ──────────────────────────────────
 app.use(express.static(path.join(__dirname, '../client/build')));
 app.use(express.static(path.join(__dirname, '../client/public')));
@@ -156,10 +139,6 @@ app.post('/api/hero/upload', upload.single('image'), async (req, res) => {
     const imageUrl = result.secure_url;
 
     if (pool) {
-      const [existing] = await pool.query("SELECT * FROM images WHERE section = 'hero'");
-      for (const row of existing) {
-        await deleteFromCloudinary(row.file_path);
-      }
       await pool.query("DELETE FROM images WHERE section = 'hero'");
       const [ins] = await pool.query(
         "INSERT INTO images (position, item_type, section, file_path, is_default, title, description) VALUES (0, 'image', 'hero', ?, FALSE, ?, ?)",
@@ -181,10 +160,6 @@ app.delete('/api/hero', async (req, res) => {
   const pool = getPool();
   if (pool) {
     try {
-      const [rows] = await pool.query("SELECT * FROM images WHERE section = 'hero'");
-      for (const row of rows) {
-        await deleteFromCloudinary(row.file_path);
-      }
       await pool.query("DELETE FROM images WHERE section = 'hero'");
     } catch (err) {
       console.error('Hero delete failed:', err.message);
@@ -325,9 +300,6 @@ app.delete('/api/carousel/:id', async (req, res) => {
       "UPDATE images SET position = position - 1 WHERE section = 'carousel' AND position > ?",
       [item.position]
     );
-    if (item.file_path) {
-      await deleteFromCloudinary(item.file_path);
-    }
     console.log('Carousel item deleted:', id);
     res.json({ success: true });
   } catch (err) {
