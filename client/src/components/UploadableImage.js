@@ -395,6 +395,96 @@ const MoveClose = styled.button`
   }
 `;
 
+const PreviewImg = styled.img`
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: 8px;
+  margin: 0 auto 12px;
+  display: block;
+`;
+
+const ImageInfoText = styled.p`
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  margin-bottom: 14px;
+`;
+
+const EditTextarea = styled.textarea`
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #d6d6d6;
+  border-radius: 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  color: #003863;
+  outline: none;
+  margin-bottom: 4px;
+  resize: vertical;
+  min-height: 60px;
+  &:focus { border-color: #003863; }
+`;
+
+const FieldLabel = styled.label`
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: #666;
+  display: block;
+  margin-bottom: 4px;
+  margin-top: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+function analyzeImage(file, section) {
+  return new Promise((resolve) => {
+    const base = file.name.replace(/\.[^.]+$/, '');
+    const isGeneric = /^(IMG|DSC|DCIM|Photo|Screenshot|Screen Shot|image)?[-_ ]?\d{2,}/i.test(base);
+    let title;
+    if (isGeneric) {
+      title = section === 'hero' ? 'Hero Image' : 'New Image';
+    } else {
+      title = base.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+    }
+
+    const ext = file.name.split('.').pop().toUpperCase();
+    const sizeMB = file.size / (1024 * 1024);
+    const sizeStr = sizeMB >= 1 ? `${sizeMB.toFixed(1)} MB` : `${(file.size / 1024).toFixed(0)} KB`;
+    const previewUrl = URL.createObjectURL(file);
+
+    const img = new Image();
+    img.onload = () => {
+      const ratio = img.width / img.height;
+      let orient = 'image';
+      if (ratio > 1.8) orient = 'panoramic image';
+      else if (ratio > 1.1) orient = 'landscape image';
+      else if (ratio < 0.9) orient = 'portrait image';
+
+      const canvas = document.createElement('canvas');
+      const sz = 50;
+      canvas.width = sz;
+      canvas.height = sz;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, sz, sz);
+      const px = ctx.getImageData(0, 0, sz, sz).data;
+      let r = 0, g = 0, b = 0, cnt = 0;
+      for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i+1]; b += px[i+2]; cnt++; }
+      r = Math.round(r / cnt); g = Math.round(g / cnt); b = Math.round(b / cnt);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      const tone = brightness > 170 ? 'Bright' : brightness > 85 ? 'Medium-tone' : 'Dark';
+
+      const description = `${tone} ${orient}, ${img.width}\u00D7${img.height} ${ext} (${sizeStr})`;
+      resolve({ title, description, previewUrl });
+    };
+    img.onerror = () => {
+      resolve({ title, description: `${ext} file (${sizeStr})`, previewUrl });
+    };
+    img.src = previewUrl;
+  });
+}
+
 function buildStyledHtml(text, { fontSize, fontFamily, fontColor, bold, italic, underline }) {
   const parts = [
     `font-family: ${fontFamily}`,
@@ -464,6 +554,12 @@ function UploadableImage({
   const [errors, setErrors] = useState({});
   const [deleteTextOpen, setDeleteTextOpen] = useState(false);
   const [moveMode, setMoveMode] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadDesc, setUploadDesc] = useState('');
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState(null);
+  const [uploadInfo, setUploadInfo] = useState('');
 
   const canMove = typeof onMove === 'function' && typeof imageTotal === 'number' && imageTotal > 1;
   const isFirst = imageIndex === 0;
@@ -603,9 +699,25 @@ function UploadableImage({
   const handleFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    e.target.value = '';
+    const section = uploadUrl?.includes('hero') ? 'hero' : 'carousel';
+    const analysis = await analyzeImage(file, section);
+    setPendingFile(file);
+    setUploadTitle(analysis.title);
+    setUploadDesc(analysis.description);
+    setUploadPreviewUrl(analysis.previewUrl);
+    setUploadInfo(analysis.description);
+    setUploadModalOpen(true);
+  };
+
+  const handleConfirmUpload = async () => {
+    if (!pendingFile) return;
+    setUploadModalOpen(false);
     setUploading(true);
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('image', pendingFile);
+    formData.append('title', uploadTitle.trim());
+    formData.append('description', uploadDesc.trim());
     try {
       const endpoint = uploadUrl || '/api/upload';
       const res = await fetch(endpoint, { method: 'POST', body: formData });
@@ -615,7 +727,16 @@ function UploadableImage({
       console.error('Upload failed:', err);
     }
     setUploading(false);
-    e.target.value = '';
+    if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+    setPendingFile(null);
+    setUploadPreviewUrl(null);
+  };
+
+  const handleCancelUpload = () => {
+    setUploadModalOpen(false);
+    if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+    setPendingFile(null);
+    setUploadPreviewUrl(null);
   };
 
   const previewStyle = {
@@ -828,6 +949,33 @@ function UploadableImage({
                 Delete
               </ApplyBtn>
               <CancelBtn onClick={() => setDeleteTextOpen(false)}>Cancel</CancelBtn>
+            </BtnRow>
+          </EditPanel>
+        </EditModal>
+      )}
+      {uploadModalOpen && (
+        <EditModal onClick={handleCancelUpload}>
+          <EditPanel onClick={(e) => e.stopPropagation()}>
+            <EditTitle>Upload Image</EditTitle>
+            {uploadPreviewUrl && <PreviewImg src={uploadPreviewUrl} alt="Preview" />}
+            <ImageInfoText>{uploadInfo}</ImageInfoText>
+            <FieldLabel>Title</FieldLabel>
+            <EditInput
+              placeholder="Image title..."
+              value={uploadTitle}
+              onChange={(e) => setUploadTitle(e.target.value)}
+              autoFocus
+            />
+            <FieldLabel>Description</FieldLabel>
+            <EditTextarea
+              placeholder="Image description..."
+              value={uploadDesc}
+              onChange={(e) => setUploadDesc(e.target.value)}
+            />
+            <div style={{ marginTop: 14 }} />
+            <BtnRow>
+              <ApplyBtn onClick={handleConfirmUpload}>Upload</ApplyBtn>
+              <CancelBtn onClick={handleCancelUpload}>Cancel</CancelBtn>
             </BtnRow>
           </EditPanel>
         </EditModal>

@@ -339,6 +339,40 @@ const HiddenFileInput = styled.input`
 
 const PLACEHOLDER = '/images/system_images/logo.png';
 
+function analyzeCarouselImage(file) {
+  return new Promise((resolve) => {
+    const base = file.name.replace(/\.[^.]+$/, '');
+    const isGeneric = /^(IMG|DSC|DCIM|Photo|Screenshot|Screen Shot|image)?[-_ ]?\d{2,}/i.test(base);
+    const title = isGeneric ? 'Carousel Image' : base.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+    const ext = file.name.split('.').pop().toUpperCase();
+    const sizeMB = file.size / (1024 * 1024);
+    const sizeStr = sizeMB >= 1 ? `${sizeMB.toFixed(1)} MB` : `${(file.size / 1024).toFixed(0)} KB`;
+    const previewUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const ratio = img.width / img.height;
+      let orient = 'image';
+      if (ratio > 1.8) orient = 'panoramic image';
+      else if (ratio > 1.1) orient = 'landscape image';
+      else if (ratio < 0.9) orient = 'portrait image';
+      const canvas = document.createElement('canvas');
+      const sz = 50;
+      canvas.width = sz; canvas.height = sz;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, sz, sz);
+      const px = ctx.getImageData(0, 0, sz, sz).data;
+      let r = 0, g = 0, b = 0, cnt = 0;
+      for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i+1]; b += px[i+2]; cnt++; }
+      r = Math.round(r / cnt); g = Math.round(g / cnt); b = Math.round(b / cnt);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      const tone = brightness > 170 ? 'Bright' : brightness > 85 ? 'Medium-tone' : 'Dark';
+      resolve({ title, description: `${tone} ${orient}, ${img.width}\u00D7${img.height} ${ext} (${sizeStr})`, previewUrl });
+    };
+    img.onerror = () => resolve({ title, description: `${ext} file (${sizeStr})`, previewUrl });
+    img.src = previewUrl;
+  });
+}
+
 function wrapText(ctx, text, maxWidth) {
   const words = text.split(' ');
   const lines = [];
@@ -402,6 +436,12 @@ function Testimonials() {
   const [tQuote, setTQuote] = useState('');
   const [tName, setTName] = useState('');
   const [tErrors, setTErrors] = useState({});
+  const [showUploadPreview, setShowUploadPreview] = useState(false);
+  const [pendingAddFile, setPendingAddFile] = useState(null);
+  const [addTitle, setAddTitle] = useState('');
+  const [addDesc, setAddDesc] = useState('');
+  const [addPreviewUrl, setAddPreviewUrl] = useState(null);
+  const [addInfo, setAddInfo] = useState('');
 
   const placeholderSrc = `${process.env.PUBLIC_URL}${PLACEHOLDER}`;
 
@@ -437,8 +477,23 @@ function Testimonials() {
   const handleAddImageFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    e.target.value = '';
+    const analysis = await analyzeCarouselImage(file);
+    setPendingAddFile(file);
+    setAddTitle(analysis.title);
+    setAddDesc(analysis.description);
+    setAddPreviewUrl(analysis.previewUrl);
+    setAddInfo(analysis.description);
+    setShowUploadPreview(true);
+  };
+
+  const handleConfirmAddImage = async () => {
+    if (!pendingAddFile) return;
+    setShowUploadPreview(false);
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('image', pendingAddFile);
+    formData.append('title', addTitle.trim());
+    formData.append('description', addDesc.trim());
     try {
       const res = await fetch('/api/carousel/image', { method: 'POST', body: formData });
       const data = await res.json();
@@ -449,7 +504,16 @@ function Testimonials() {
     } catch (err) {
       console.error('Upload failed:', err);
     }
-    e.target.value = '';
+    if (addPreviewUrl) URL.revokeObjectURL(addPreviewUrl);
+    setPendingAddFile(null);
+    setAddPreviewUrl(null);
+  };
+
+  const handleCancelAddImage = () => {
+    setShowUploadPreview(false);
+    if (addPreviewUrl) URL.revokeObjectURL(addPreviewUrl);
+    setPendingAddFile(null);
+    setAddPreviewUrl(null);
   };
 
   const handleSaveTestimonial = async () => {
@@ -465,6 +529,8 @@ function Testimonials() {
       const blob = await generateTestimonialImage(quoteText, authorText);
       const formData = new FormData();
       formData.append('image', blob, `testimonial-${Date.now()}.png`);
+      formData.append('title', `Testimonial - ${tName.trim()}`);
+      formData.append('description', tQuote.trim());
       const res = await fetch('/api/carousel/testimonial', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.success) {
@@ -681,6 +747,42 @@ function Testimonials() {
             <FormBtnRow>
               <FormPrimary onClick={handleSaveTestimonial}>Save Testimonial</FormPrimary>
               <FormCancel onClick={() => setShowTestimonialForm(false)}>Cancel</FormCancel>
+            </FormBtnRow>
+          </ModalPanel>
+        </ModalBackdrop>
+      )}
+
+      {showUploadPreview && (
+        <ModalBackdrop onClick={handleCancelAddImage}>
+          <ModalPanel onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>Upload Image</ModalTitle>
+            {addPreviewUrl && (
+              <img
+                src={addPreviewUrl}
+                alt="Preview"
+                style={{ maxWidth: '100%', maxHeight: 180, objectFit: 'contain', borderRadius: 8, display: 'block', margin: '0 auto 12px' }}
+              />
+            )}
+            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: '#999', textAlign: 'center', marginBottom: 14 }}>
+              {addInfo}
+            </p>
+            <FormLabel>Title</FormLabel>
+            <FormInput
+              placeholder="Image title..."
+              value={addTitle}
+              onChange={(e) => setAddTitle(e.target.value)}
+              autoFocus
+            />
+            <FormLabel>Description</FormLabel>
+            <FormTextarea
+              placeholder="Image description..."
+              value={addDesc}
+              onChange={(e) => setAddDesc(e.target.value)}
+              style={{ minHeight: 60 }}
+            />
+            <FormBtnRow>
+              <FormPrimary onClick={handleConfirmAddImage}>Upload</FormPrimary>
+              <FormCancel onClick={handleCancelAddImage}>Cancel</FormCancel>
             </FormBtnRow>
           </ModalPanel>
         </ModalBackdrop>

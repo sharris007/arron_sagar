@@ -8,13 +8,13 @@ const { getPool, initDatabase } = require('./config/db');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const APP_NAME = process.env.APP_NAME || 'Aaron Sager';
+const ENVIRONMENT = process.env.NODE_ENV || 'development';
 
 app.use(cors());
 app.use(express.json());
 
 // ── Cloudinary config ─────────────────────────────────────
-// SDK auto-reads CLOUDINARY_URL env var if present.
-// Fall back to explicit config for local dev.
 if (!process.env.CLOUDINARY_URL) {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'priority-endeavors-llc',
@@ -32,7 +32,7 @@ const heroDir = path.join(imagesDir, 'hero');
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 });
 
-// ── Multer – memory storage so we can stream to Cloudinary ──
+// ── Multer – memory storage for Cloudinary streaming ──
 const imageFilter = (req, file, cb) => {
   const allowed = /jpeg|jpg|png|gif|webp|svg/;
   const ext = allowed.test(path.extname(file.originalname).toLowerCase());
@@ -47,14 +47,31 @@ const upload = multer({
 });
 
 // ── Cloudinary helpers ────────────────────────────────────
-function uploadToCloudinary(buffer, folder, originalName) {
+function escapeCtx(val) {
+  return (val || '').replace(/[|=]/g, ' ').substring(0, 500);
+}
+
+function uploadToCloudinary(buffer, folder, originalName, { title, description } = {}) {
   return new Promise((resolve, reject) => {
     const base = path.basename(originalName, path.extname(originalName))
       .replace(/[^a-zA-Z0-9_-]/g, '-')
       .substring(0, 50);
     const publicId = `${base}-${Date.now()}`;
+
+    const ctxParts = [
+      `AppName=${escapeCtx(APP_NAME)}`,
+      `Environment=${escapeCtx(ENVIRONMENT)}`,
+    ];
+    if (title) ctxParts.push(`title=${escapeCtx(title)}`);
+    if (description) ctxParts.push(`description=${escapeCtx(description)}`);
+
     const stream = cloudinary.uploader.upload_stream(
-      { folder: `aaron_sager/${folder}`, public_id: publicId, resource_type: 'image' },
+      {
+        folder: `aaron_sager/${folder}`,
+        public_id: publicId,
+        resource_type: 'image',
+        context: ctxParts.join('|'),
+      },
       (err, result) => (err ? reject(err) : resolve(result))
     );
     stream.end(buffer);
@@ -78,17 +95,19 @@ async function deleteFromCloudinary(url) {
   }
 }
 
-// ── Static file serving (legacy / default images) ────────
+// ── Static file serving ──────────────────────────────────
 app.use(express.static(path.join(__dirname, '../client/build')));
 app.use(express.static(path.join(__dirname, '../client/public')));
 
-// ── General upload (unused currently but kept for flexibility) ──
+// ── General upload ───────────────────────────────────────
 app.post('/api/upload', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No valid image file provided' });
   }
+  const title = req.body.title || '';
+  const description = req.body.description || '';
   try {
-    const result = await uploadToCloudinary(req.file.buffer, 'general', req.file.originalname);
+    const result = await uploadToCloudinary(req.file.buffer, 'general', req.file.originalname, { title, description });
     console.log('Image uploaded to Cloudinary:', result.secure_url);
     res.json({ success: true, imageUrl: result.secure_url, filename: result.public_id });
   } catch (err) {
@@ -97,7 +116,7 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
   }
 });
 
-// ── Hero API ──────────────────────────────────────────────
+// ── Hero API ─────────────────────────────────────────────
 
 app.get('/api/hero', async (req, res) => {
   const pool = getPool();
@@ -112,6 +131,8 @@ app.get('/api/hero', async (req, res) => {
         file_path: row.file_path,
         image_text: row.image_text || null,
         text_position: row.text_position || null,
+        title: row.title || null,
+        description: row.description || null,
       });
     } else {
       res.json({ success: true, file_path: null });
@@ -126,10 +147,12 @@ app.post('/api/hero/upload', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No valid image file provided' });
   }
+  const title = req.body.title || '';
+  const description = req.body.description || '';
   const pool = getPool();
 
   try {
-    const result = await uploadToCloudinary(req.file.buffer, 'hero', req.file.originalname);
+    const result = await uploadToCloudinary(req.file.buffer, 'hero', req.file.originalname, { title, description });
     const imageUrl = result.secure_url;
 
     if (pool) {
@@ -139,8 +162,8 @@ app.post('/api/hero/upload', upload.single('image'), async (req, res) => {
       }
       await pool.query("DELETE FROM images WHERE section = 'hero'");
       const [ins] = await pool.query(
-        "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'hero', ?, FALSE)",
-        [imageUrl]
+        "INSERT INTO images (position, item_type, section, file_path, is_default, title, description) VALUES (0, 'image', 'hero', ?, FALSE, ?, ?)",
+        [imageUrl, title || null, description || null]
       );
       console.log('Hero image uploaded to Cloudinary:', imageUrl);
       res.json({ success: true, id: ins.insertId, file_path: imageUrl });
@@ -170,7 +193,7 @@ app.delete('/api/hero', async (req, res) => {
   res.json({ success: true });
 });
 
-// ── Image Text API (shared by hero + carousel) ───────────
+// ── Image Text API ───────────────────────────────────────
 
 app.put('/api/images/:id/text', async (req, res) => {
   const { id } = req.params;
@@ -205,7 +228,7 @@ app.delete('/api/images/:id/text', async (req, res) => {
   }
 });
 
-// ── Carousel API ──────────────────────────────────────────
+// ── Carousel API ─────────────────────────────────────────
 
 app.get('/api/carousel', async (req, res) => {
   const pool = getPool();
@@ -225,15 +248,17 @@ app.post('/api/carousel/image', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No valid image file provided' });
   }
+  const title = req.body.title || '';
+  const description = req.body.description || '';
   const pool = getPool();
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
-    const result = await uploadToCloudinary(req.file.buffer, 'carousel', req.file.originalname);
+    const result = await uploadToCloudinary(req.file.buffer, 'carousel', req.file.originalname, { title, description });
     const imageUrl = result.secure_url;
     await pool.query("UPDATE images SET position = position + 1 WHERE section = 'carousel'");
     const [ins] = await pool.query(
-      "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'carousel', ?, FALSE)",
-      [imageUrl]
+      "INSERT INTO images (position, item_type, section, file_path, is_default, title, description) VALUES (0, 'image', 'carousel', ?, FALSE, ?, ?)",
+      [imageUrl, title || null, description || null]
     );
     console.log('Carousel image added (Cloudinary):', imageUrl);
     res.json({ success: true, id: ins.insertId, file_path: imageUrl });
@@ -247,15 +272,17 @@ app.post('/api/carousel/testimonial', upload.single('image'), async (req, res) =
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No valid image file provided' });
   }
+  const title = req.body.title || '';
+  const description = req.body.description || '';
   const pool = getPool();
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
-    const result = await uploadToCloudinary(req.file.buffer, 'carousel', req.file.originalname);
+    const result = await uploadToCloudinary(req.file.buffer, 'carousel', req.file.originalname, { title, description });
     const imageUrl = result.secure_url;
     await pool.query("UPDATE images SET position = position + 1 WHERE section = 'carousel'");
     const [ins] = await pool.query(
-      "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'carousel', ?, FALSE)",
-      [imageUrl]
+      "INSERT INTO images (position, item_type, section, file_path, is_default, title, description) VALUES (0, 'image', 'carousel', ?, FALSE, ?, ?)",
+      [imageUrl, title || null, description || null]
     );
     console.log('Testimonial added (Cloudinary):', imageUrl);
     res.json({ success: true, id: ins.insertId, file_path: imageUrl });

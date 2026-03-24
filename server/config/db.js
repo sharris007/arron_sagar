@@ -97,7 +97,9 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         section VARCHAR(20) NOT NULL DEFAULT 'carousel',
         image_text TEXT,
-        text_position VARCHAR(50)
+        text_position VARCHAR(50),
+        title VARCHAR(255),
+        description TEXT
       )
     `);
 
@@ -105,6 +107,8 @@ async function initDatabase() {
     await addColumnSafe(connection, 'images', 'section', "VARCHAR(20) NOT NULL DEFAULT 'carousel'");
     await addColumnSafe(connection, 'images', 'image_text', 'TEXT');
     await addColumnSafe(connection, 'images', 'text_position', 'VARCHAR(50)');
+    await addColumnSafe(connection, 'images', 'title', 'VARCHAR(255)');
+    await addColumnSafe(connection, 'images', 'description', 'TEXT');
 
     const [rows] = await connection.query('SELECT COUNT(*) AS cnt FROM images');
     if (rows[0].cnt === 0) {
