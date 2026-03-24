@@ -395,6 +395,36 @@ const MoveClose = styled.button`
   }
 `;
 
+const LoadingOverlay = styled.div`
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+`;
+
+const Spinner = styled.div`
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  @keyframes spin { to { transform: rotate(360deg); } }
+`;
+
+const LoadingLabel = styled.span`
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+`;
+
 const PreviewImg = styled.img`
   max-width: 100%;
   max-height: 180px;
@@ -755,6 +785,12 @@ function UploadableImage({
   return (
     <Wrapper style={style} className={className} $display={display} $width={width} $height={height} $shrink={shrink}>
       {children}
+      {uploading && (
+        <LoadingOverlay>
+          <Spinner />
+          <LoadingLabel>Uploading…</LoadingLabel>
+        </LoadingOverlay>
+      )}
       {overlay && pos && (
         <TextOverlay>
           {overlay.html ? (

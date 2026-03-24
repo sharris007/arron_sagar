@@ -337,6 +337,36 @@ const HiddenFileInput = styled.input`
   display: none;
 `;
 
+const UploadingOverlay = styled.div`
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+`;
+
+const Spinner = styled.div`
+  width: 44px;
+  height: 44px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  @keyframes spin { to { transform: rotate(360deg); } }
+`;
+
+const UploadingLabel = styled.span`
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+`;
+
 const PLACEHOLDER = '/images/system_images/logo.png';
 
 function analyzeCarouselImage(file) {
@@ -436,6 +466,7 @@ function Testimonials() {
   const [tQuote, setTQuote] = useState('');
   const [tName, setTName] = useState('');
   const [tErrors, setTErrors] = useState({});
+  const [uploading, setUploading] = useState(false);
   const [showUploadPreview, setShowUploadPreview] = useState(false);
   const [pendingAddFile, setPendingAddFile] = useState(null);
   const [addTitle, setAddTitle] = useState('');
@@ -490,6 +521,7 @@ function Testimonials() {
   const handleConfirmAddImage = async () => {
     if (!pendingAddFile) return;
     setShowUploadPreview(false);
+    setUploading(true);
     const formData = new FormData();
     formData.append('image', pendingAddFile);
     formData.append('title', addTitle.trim());
@@ -504,6 +536,7 @@ function Testimonials() {
     } catch (err) {
       console.error('Upload failed:', err);
     }
+    setUploading(false);
     if (addPreviewUrl) URL.revokeObjectURL(addPreviewUrl);
     setPendingAddFile(null);
     setAddPreviewUrl(null);
@@ -525,6 +558,8 @@ function Testimonials() {
     const quoteText = `\u201c${tQuote.trim()}\u201d`;
     const authorText = `-${tName.trim()}`;
 
+    setShowTestimonialForm(false);
+    setUploading(true);
     try {
       const blob = await generateTestimonialImage(quoteText, authorText);
       const formData = new FormData();
@@ -535,12 +570,12 @@ function Testimonials() {
       const data = await res.json();
       if (data.success) {
         await fetchItems();
-        setShowTestimonialForm(false);
         if (trackRef.current) trackRef.current.scrollTo({ left: 0, behavior: 'smooth' });
       }
     } catch (err) {
       console.error('Testimonial save failed:', err);
     }
+    setUploading(false);
   };
 
   const handleDeleteItem = async (id) => {
@@ -622,6 +657,12 @@ function Testimonials() {
 
   return (
     <Section>
+      {uploading && (
+        <UploadingOverlay>
+          <Spinner />
+          <UploadingLabel>Uploading…</UploadingLabel>
+        </UploadingOverlay>
+      )}
       {!atStart && (
         <LeftArrow onClick={() => scroll('left')} aria-label="Previous">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
