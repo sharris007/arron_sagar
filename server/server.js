@@ -296,6 +296,36 @@ app.post('/api/carousel/testimonial', upload.single('image'), async (req, res) =
   }
 });
 
+app.post('/api/carousel/:id/replace', upload.single('image'), async (req, res) => {
+  const { id } = req.params;
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'No valid image file provided' });
+  }
+  const title = req.body.title || '';
+  const description = req.body.description || '';
+  const pool = getPool();
+  if (!pool) return res.status(500).json({ success: false, error: 'No database' });
+  try {
+    const [rows] = await pool.query('SELECT * FROM images WHERE id = ?', [id]);
+    if (!rows.length) return res.status(404).json({ success: false, error: 'Item not found' });
+    const oldItem = rows[0];
+    if (oldItem.file_path) {
+      await archiveInCloudinary(oldItem.file_path);
+    }
+    const result = await uploadToCloudinary(req.file.buffer, 'carousel', req.file.originalname, { title, description });
+    const imageUrl = result.secure_url;
+    await pool.query(
+      'UPDATE images SET file_path = ?, title = ?, description = ? WHERE id = ?',
+      [imageUrl, title || null, description || null, id]
+    );
+    console.log('Carousel image replaced:', id, '->', imageUrl);
+    res.json({ success: true, id: Number(id), file_path: imageUrl });
+  } catch (err) {
+    console.error('Carousel replace failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.put('/api/carousel/reorder', async (req, res) => {
   const { idA, idB } = req.body;
   const pool = getPool();
