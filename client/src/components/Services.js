@@ -142,9 +142,9 @@ const Price = styled.p`
 `;
 
 const defaultServices = [
-  { icon: '/images/reel.svg', name: 'Wedding Video', price: 'starting from $995', link: '/video', alt: 'Wedding Video Icon' },
-  { icon: '/images/camera.svg', name: 'Wedding Photo', price: 'starting from $995', link: '/photo', alt: 'Wedding Photography Icon' },
-  { icon: '/images/subwoofer.svg', name: 'Wedding DJ', price: 'starting at $995', link: '/dj', alt: 'Wedding DJ Icon' }
+  { icon: '/images/system_images/reel.svg', name: 'Wedding Video', price: 'starting from $995', link: '/video', alt: 'Wedding Video Icon' },
+  { icon: '/images/system_images/camera.svg', name: 'Wedding Photo', price: 'starting from $995', link: '/photo', alt: 'Wedding Photography Icon' },
+  { icon: '/images/system_images/subwoofer.svg', name: 'Wedding DJ', price: 'starting at $995', link: '/dj', alt: 'Wedding DJ Icon' }
 ];
 
 function Services() {
