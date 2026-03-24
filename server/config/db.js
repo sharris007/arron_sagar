@@ -24,6 +24,18 @@ const DEFAULT_CAROUSEL = [
   { item_type: 'image',  file_path: '/images/carousel/1219992_1051.jpg' },
 ];
 
+async function addColumnSafe(connection, table, column, definition) {
+  try {
+    const [cols] = await connection.query(`SHOW COLUMNS FROM \`${table}\` LIKE ?`, [column]);
+    if (cols.length === 0) {
+      await connection.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+      console.log(`Added column ${column} to ${table}`);
+    }
+  } catch (err) {
+    console.log(`Column check/add for ${column}: ${err.message}`);
+  }
+}
+
 async function initDatabase() {
   try {
     const tempConnection = await mysql.createConnection(poolConfig);
@@ -50,8 +62,24 @@ async function initDatabase() {
       )
     `);
 
+    // Migrate: rename carousel_items → images if the old table still exists
+    const [tables] = await connection.query(
+      "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'carousel_items'",
+      [DB_NAME]
+    );
+    if (tables.length > 0) {
+      const [imgTable] = await connection.query(
+        "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'images'",
+        [DB_NAME]
+      );
+      if (imgTable.length === 0) {
+        await connection.query('RENAME TABLE carousel_items TO images');
+        console.log('Renamed carousel_items → images');
+      }
+    }
+
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS carousel_items (
+      CREATE TABLE IF NOT EXISTS images (
         id INT AUTO_INCREMENT PRIMARY KEY,
         position INT NOT NULL DEFAULT 0,
         item_type VARCHAR(20) NOT NULL DEFAULT 'image',
@@ -61,17 +89,25 @@ async function initDatabase() {
         quote_service VARCHAR(255),
         quote_location VARCHAR(255),
         is_default BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        section VARCHAR(20) NOT NULL DEFAULT 'carousel',
+        image_text TEXT,
+        text_position VARCHAR(50)
       )
     `);
 
-    const [rows] = await connection.query('SELECT COUNT(*) AS cnt FROM carousel_items');
+    // Ensure new columns exist on tables that were migrated from carousel_items
+    await addColumnSafe(connection, 'images', 'section', "VARCHAR(20) NOT NULL DEFAULT 'carousel'");
+    await addColumnSafe(connection, 'images', 'image_text', 'TEXT');
+    await addColumnSafe(connection, 'images', 'text_position', 'VARCHAR(50)');
+
+    const [rows] = await connection.query('SELECT COUNT(*) AS cnt FROM images');
     if (rows[0].cnt === 0) {
       for (let i = 0; i < DEFAULT_CAROUSEL.length; i++) {
         const d = DEFAULT_CAROUSEL[i];
         await connection.query(
-          `INSERT INTO carousel_items (position, item_type, file_path, quote_text, quote_author, quote_service, quote_location, is_default)
-           VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)`,
+          `INSERT INTO images (position, item_type, section, file_path, quote_text, quote_author, quote_service, quote_location, is_default)
+           VALUES (?, ?, 'carousel', ?, ?, ?, ?, ?, TRUE)`,
           [i, d.item_type, d.file_path, d.quote_text || null, d.quote_author || null, d.quote_service || null, d.quote_location || null]
         );
       }

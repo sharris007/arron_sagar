@@ -3,3 +3,12 @@ client/node_modules
 server/node_modules
 client/build
 .env
+
+# Ignore everything in images
+client/public/images/*
+
+# BUT allow system_images folder
+!client/public/images/system_images/
+
+# AND allow everything inside it
+!client/public/images/system_images/**

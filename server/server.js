@@ -20,15 +20,6 @@ if (!fs.existsSync(carouselDir)) fs.mkdirSync(carouselDir, { recursive: true });
 if (!fs.existsSync(heroDir)) fs.mkdirSync(heroDir, { recursive: true });
 if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
 
-function getHeroImage() {
-  const allowed = /\.(jpe?g|png|gif|webp|svg)$/i;
-  try {
-    const files = fs.readdirSync(heroDir).filter(f => allowed.test(f));
-    if (files.length > 0) return `/images/hero/${files[0]}`;
-  } catch {}
-  return null;
-}
-
 function archiveFile(filePath) {
   const publicRoot = path.join(__dirname, '../client/public');
   const fullSrc = path.join(publicRoot, filePath);
@@ -100,6 +91,7 @@ const heroUpload = multer({
 });
 
 app.use(express.static(path.join(__dirname, '../client/build')));
+app.use(express.static(path.join(__dirname, '../client/public')));
 
 app.post('/api/upload', generalUpload.single('image'), (req, res) => {
   if (!req.file) {
@@ -110,32 +102,137 @@ app.post('/api/upload', generalUpload.single('image'), (req, res) => {
   res.json({ success: true, imageUrl, filename: req.file.filename });
 });
 
-// ── Hero API ───────────────────────────────────────────────
+async function ensureHeroInDb() {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM images WHERE section = 'hero'");
+    if (rows[0].cnt > 0) return;
+    const allowed = /\.(jpe?g|png|gif|webp|svg)$/i;
+    const files = fs.readdirSync(heroDir).filter(f => allowed.test(f));
+    if (files.length > 0) {
+      const filePath = `/images/hero/${files[0]}`;
+      await pool.query(
+        "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'hero', ?, FALSE)",
+        [filePath]
+      );
+      console.log('Imported existing hero image into DB:', filePath);
+    }
+  } catch (err) {
+    console.error('Hero auto-import failed:', err.message);
+  }
+}
 
-app.get('/api/hero', (req, res) => {
-  const heroPath = getHeroImage();
-  res.json({ success: true, file_path: heroPath });
+// ── Hero API (DB-backed) ──────────────────────────────────
+
+app.get('/api/hero', async (req, res) => {
+  const pool = getPool();
+  if (!pool) return res.json({ success: true, file_path: null });
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM images WHERE section = 'hero' LIMIT 1"
+    );
+    if (rows.length > 0) {
+      const row = rows[0];
+      res.json({
+        success: true,
+        id: row.id,
+        file_path: row.file_path,
+        image_text: row.image_text || null,
+        text_position: row.text_position || null,
+      });
+    } else {
+      res.json({ success: true, file_path: null });
+    }
+  } catch (err) {
+    console.error('Hero fetch failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-app.post('/api/hero/upload', heroUpload.single('image'), (req, res) => {
+app.post('/api/hero/upload', heroUpload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No valid image file provided' });
   }
+  const filePath = `/images/hero/${req.file.filename}`;
+  const pool = getPool();
+
   const allowed = /\.(jpe?g|png|gif|webp|svg)$/i;
   const existing = fs.readdirSync(heroDir).filter(f => allowed.test(f) && f !== req.file.filename);
   existing.forEach(f => archiveFile(`/images/hero/${f}`));
-  const filePath = `/images/hero/${req.file.filename}`;
-  console.log('Hero image uploaded:', filePath);
-  res.json({ success: true, file_path: filePath });
+
+  if (!pool) {
+    console.log('Hero image uploaded (no DB):', filePath);
+    return res.json({ success: true, file_path: filePath });
+  }
+
+  try {
+    await pool.query("DELETE FROM images WHERE section = 'hero'");
+    const [result] = await pool.query(
+      "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'hero', ?, FALSE)",
+      [filePath]
+    );
+    console.log('Hero image uploaded:', filePath);
+    res.json({ success: true, id: result.insertId, file_path: filePath });
+  } catch (err) {
+    console.error('Hero DB insert failed:', err.message);
+    res.json({ success: true, file_path: filePath });
+  }
 });
 
-app.delete('/api/hero', (req, res) => {
-  const heroPath = getHeroImage();
-  if (heroPath) {
-    archiveFile(heroPath);
-    console.log('Hero image archived:', heroPath);
+app.delete('/api/hero', async (req, res) => {
+  const pool = getPool();
+  if (pool) {
+    try {
+      const [rows] = await pool.query("SELECT * FROM images WHERE section = 'hero'");
+      if (rows.length > 0 && rows[0].file_path) {
+        archiveFile(rows[0].file_path);
+      }
+      await pool.query("DELETE FROM images WHERE section = 'hero'");
+    } catch (err) {
+      console.error('Hero delete failed:', err.message);
+    }
   }
+  const allowedExt = /\.(jpe?g|png|gif|webp|svg)$/i;
+  try {
+    fs.readdirSync(heroDir).filter(f => allowedExt.test(f)).forEach(f => archiveFile(`/images/hero/${f}`));
+  } catch (e) { /* ignore */ }
   res.json({ success: true });
+});
+
+// ── Image Text API (shared by hero + carousel) ───────────
+
+app.put('/api/images/:id/text', async (req, res) => {
+  const { id } = req.params;
+  const { image_text, text_position } = req.body;
+  const pool = getPool();
+  if (!pool) return res.status(500).json({ success: false, error: 'No database' });
+  try {
+    await pool.query(
+      'UPDATE images SET image_text = ?, text_position = ? WHERE id = ?',
+      [image_text || null, text_position || null, id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Text update failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/images/:id/text', async (req, res) => {
+  const { id } = req.params;
+  const pool = getPool();
+  if (!pool) return res.status(500).json({ success: false, error: 'No database' });
+  try {
+    await pool.query(
+      'UPDATE images SET image_text = NULL, text_position = NULL WHERE id = ?',
+      [id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Text delete failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ── Carousel API ───────────────────────────────────────────
@@ -144,7 +241,9 @@ app.get('/api/carousel', async (req, res) => {
   const pool = getPool();
   if (!pool) return res.json({ success: true, items: [] });
   try {
-    const [rows] = await pool.query('SELECT * FROM carousel_items ORDER BY position ASC');
+    const [rows] = await pool.query(
+      "SELECT * FROM images WHERE section = 'carousel' ORDER BY position ASC"
+    );
     res.json({ success: true, items: rows });
   } catch (err) {
     console.error('Carousel fetch failed:', err.message);
@@ -160,10 +259,10 @@ app.post('/api/carousel/image', carouselUpload.single('image'), async (req, res)
   const pool = getPool();
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
-    await pool.query('UPDATE carousel_items SET position = position + 1');
+    await pool.query("UPDATE images SET position = position + 1 WHERE section = 'carousel'");
     const [result] = await pool.query(
-      'INSERT INTO carousel_items (position, item_type, file_path, is_default) VALUES (0, ?, ?, FALSE)',
-      ['image', filePath]
+      "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'carousel', ?, FALSE)",
+      [filePath]
     );
     console.log('Carousel image added:', filePath);
     res.json({ success: true, id: result.insertId, file_path: filePath });
@@ -181,10 +280,10 @@ app.post('/api/carousel/testimonial', carouselUpload.single('image'), async (req
   const pool = getPool();
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
-    await pool.query('UPDATE carousel_items SET position = position + 1');
+    await pool.query("UPDATE images SET position = position + 1 WHERE section = 'carousel'");
     const [result] = await pool.query(
-      'INSERT INTO carousel_items (position, item_type, file_path, is_default) VALUES (0, ?, ?, FALSE)',
-      ['image', filePath]
+      "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'carousel', ?, FALSE)",
+      [filePath]
     );
     console.log('Testimonial image added to carousel:', filePath);
     res.json({ success: true, id: result.insertId, file_path: filePath });
@@ -200,13 +299,13 @@ app.put('/api/carousel/reorder', async (req, res) => {
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
     const [rows] = await pool.query(
-      'SELECT id, position FROM carousel_items WHERE id IN (?, ?)', [idA, idB]
+      'SELECT id, position FROM images WHERE id IN (?, ?)', [idA, idB]
     );
     if (rows.length !== 2) return res.status(404).json({ success: false, error: 'Items not found' });
     const posA = rows.find(r => r.id === idA).position;
     const posB = rows.find(r => r.id === idB).position;
-    await pool.query('UPDATE carousel_items SET position = ? WHERE id = ?', [posB, idA]);
-    await pool.query('UPDATE carousel_items SET position = ? WHERE id = ?', [posA, idB]);
+    await pool.query('UPDATE images SET position = ? WHERE id = ?', [posB, idA]);
+    await pool.query('UPDATE images SET position = ? WHERE id = ?', [posA, idB]);
     res.json({ success: true });
   } catch (err) {
     console.error('Carousel reorder failed:', err.message);
@@ -219,12 +318,13 @@ app.delete('/api/carousel/:id', async (req, res) => {
   const pool = getPool();
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
-    const [rows] = await pool.query('SELECT * FROM carousel_items WHERE id = ?', [id]);
+    const [rows] = await pool.query('SELECT * FROM images WHERE id = ?', [id]);
     if (!rows.length) return res.status(404).json({ success: false, error: 'Item not found' });
     const item = rows[0];
-    await pool.query('DELETE FROM carousel_items WHERE id = ?', [id]);
+    await pool.query('DELETE FROM images WHERE id = ?', [id]);
     await pool.query(
-      'UPDATE carousel_items SET position = position - 1 WHERE position > ?', [item.position]
+      "UPDATE images SET position = position - 1 WHERE section = 'carousel' AND position > ?",
+      [item.position]
     );
     if (item.file_path) {
       archiveFile(item.file_path);
@@ -289,7 +389,8 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
 });
 
-initDatabase().then(() => {
+initDatabase().then(async () => {
+  await ensureHeroInDb();
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
