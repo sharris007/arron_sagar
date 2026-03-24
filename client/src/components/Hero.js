@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
+import UploadableImage from './UploadableImage';
 
 const Section = styled.section`
   width: 100%;
@@ -17,6 +18,35 @@ const Section = styled.section`
   }
 `;
 
+const PlaceholderSection = styled.section`
+  width: 100%;
+  height: 829px;
+  background: #e8edf2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+
+  @media (max-width: 1279px) {
+    height: 65.42vw;
+  }
+  @media (max-width: 639px) {
+    height: 550px;
+  }
+`;
+
+const PlaceholderLogo = styled.img`
+  max-width: 40%;
+  max-height: 40%;
+  object-fit: contain;
+  opacity: 0.4;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+`;
+
 const Overlay = styled.div`
   position: absolute;
   top: 0;
@@ -30,55 +60,60 @@ const Overlay = styled.div`
   );
 `;
 
-const Content = styled.div`
-  width: 100%;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 1;
-
-  @media (max-width: 959px) {
-    top: 60%;
-  }
-`;
-
-const Container = styled.div`
-  max-width: 1195px;
-  margin: 0 auto;
-  padding: 0 5%;
-`;
-
-const Title = styled.h1`
-  font-family: 'Dancing Script', cursive;
-  font-size: 90px;
-  line-height: 1.8;
-  color: #fff;
-  text-align: left;
-  font-weight: 400;
-
-  @media (max-width: 959px) {
-    font-size: 73px;
-    line-height: 1.77;
-  }
-  @media (max-width: 639px) {
-    font-size: 55px;
-    line-height: 1.45;
-  }
-`;
-
 function Hero() {
+  const placeholderSrc = `${process.env.PUBLIC_URL}/images/aaron_sager.png`;
+  const [heroPath, setHeroPath] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchHero = useCallback(async () => {
+    try {
+      const res = await fetch('/api/hero');
+      const data = await res.json();
+      setHeroPath(data.file_path || null);
+    } catch (err) {
+      console.error('Failed to load hero:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchHero(); }, [fetchHero]);
+
+  const handleReplace = (url) => {
+    setHeroPath(url);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await fetch('/api/hero', { method: 'DELETE' });
+      setHeroPath(null);
+    } catch (err) {
+      console.error('Hero delete failed:', err);
+    }
+  };
+
+  if (loading) return null;
+
   return (
-    <Section style={{ backgroundImage: `url(${process.env.PUBLIC_URL}/images/hero.jpg)` }}>
-      <Overlay />
-      <Content>
-        <Container>
-          <Title>
-            Photo, Video<br />
-            &amp; Disc Jockey
-          </Title>
-        </Container>
-      </Content>
-    </Section>
+    <UploadableImage
+      display="block"
+      width="100%"
+      storageKey="hero-bg"
+      uploadUrl="/api/hero/upload"
+      onReplace={handleReplace}
+      onDelete={handleDelete}
+      hasImage={!!heroPath}
+    >
+      {heroPath ? (
+        <Section style={{ backgroundImage: `url(${heroPath})` }}>
+          <Overlay />
+        </Section>
+      ) : (
+        <PlaceholderSection>
+          <PlaceholderLogo src={placeholderSrc} alt="Placeholder" />
+        </PlaceholderSection>
+      )}
+    </UploadableImage>
   );
 }
 

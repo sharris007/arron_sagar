@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import UploadableImage from './UploadableImage';
+import usePersistedImage from '../hooks/usePersistedImage';
 
 const Section = styled.section`
   display: flex;
@@ -11,19 +13,10 @@ const Section = styled.section`
   }
 `;
 
-const SideImage = styled.img`
-  width: 42.65%;
-  height: 627px;
+const SideImg = styled.img`
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  flex-shrink: 0;
-
-  @media (max-width: 1279px) {
-    width: 36%;
-    height: auto;
-  }
-  @media (max-width: 959px) {
-    display: none;
-  }
 `;
 
 const Content = styled.div`
@@ -191,6 +184,8 @@ function FindProfessionals() {
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [successMessage, setSuccessMsg] = useState('');
+  const defaultSide = `${process.env.PUBLIC_URL}/images/form-main.jpg`;
+  const [sideImage, setSideImage, , resetSide] = usePersistedImage('findpros-side', defaultSide);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -227,7 +222,17 @@ function FindProfessionals() {
 
   return (
     <Section id="FindLocalPros">
-      <SideImage src={`${process.env.PUBLIC_URL}/images/form-main.jpg`} alt="Local Wedding Photography" />
+      <UploadableImage
+        display="block"
+        width="42.65%"
+        height="627px"
+        shrink="0"
+        storageKey="findpros-side"
+        onReplace={(url) => setSideImage(url)}
+        onDelete={resetSide}
+      >
+        <SideImg src={sideImage || defaultSide} alt="Local Wedding Photography" />
+      </UploadableImage>
       <Content>
         <Title>Find Professionals</Title>
         {submitted ? (

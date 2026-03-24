@@ -1,5 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
+import UploadableImage from './UploadableImage';
+import usePersistedImage from '../hooks/usePersistedImage';
 
 const StyledFooter = styled.footer`
   display: flex;
@@ -11,11 +13,9 @@ const StyledFooter = styled.footer`
   padding: 29px 0 50px;
 `;
 
-const Logo = styled.img`
-  width: 10%;
-  min-width: 100px;
+const LogoImg = styled.img`
+  width: 100%;
   display: block;
-  margin-bottom: 14px;
 `;
 
 const Phone = styled.span`
@@ -29,9 +29,20 @@ const Phone = styled.span`
 `;
 
 function Footer() {
+  const defaultLogo = `${process.env.PUBLIC_URL}/images/logo-white.svg`;
+  const [logoSrc, setLogoSrc, , resetLogo] = usePersistedImage('footer-logo', defaultLogo);
+
   return (
     <StyledFooter>
-      <Logo src={`${process.env.PUBLIC_URL}/images/logo-white.svg`} alt="The Pros Weddings" />
+      <UploadableImage
+        width="10%"
+        style={{ minWidth: 100, marginBottom: 14 }}
+        storageKey="footer-logo"
+        onReplace={(url) => setLogoSrc(url)}
+        onDelete={resetLogo}
+      >
+        <LogoImg src={logoSrc || defaultLogo} alt="The Pros Weddings" />
+      </UploadableImage>
       <Phone>Call 1-800-843-7767</Phone>
     </StyledFooter>
   );
