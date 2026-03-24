@@ -588,6 +588,10 @@ function Testimonials() {
     }
   };
 
+  const handleReplaceItem = async (id) => {
+    await fetchItems();
+  };
+
   const handleMoveSlide = async (idx, direction) => {
     const swapIdx = direction === 'left' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= items.length) return;
@@ -680,6 +684,8 @@ function Testimonials() {
                 <UploadableImage
                   display="block"
                   storageKey={`carousel-${item.id}`}
+                  uploadUrl={`/api/carousel/${item.id}/replace`}
+                  onReplace={() => handleReplaceItem(item.id)}
                   onDelete={() => handleDeleteItem(item.id)}
                   onMove={totalSlides > 1 ? (dir) => handleMoveSlide(idx, dir) : undefined}
                   imageIndex={idx}
