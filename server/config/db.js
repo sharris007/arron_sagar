@@ -112,6 +112,19 @@ async function initDatabase() {
     await addColumnSafe(connection, 'images', 'title', 'VARCHAR(255)');
     await addColumnSafe(connection, 'images', 'description', 'TEXT');
 
+    // Migrate: move HTML from image_text into image_text_html, leave plain text in image_text
+    const [htmlRows] = await connection.query(
+      "SELECT id, image_text FROM images WHERE image_text IS NOT NULL AND image_text_html IS NULL AND image_text LIKE '%<%'"
+    );
+    for (const row of htmlRows) {
+      const plainText = row.image_text.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+      await connection.query(
+        'UPDATE images SET image_text_html = ?, image_text = ? WHERE id = ?',
+        [row.image_text, plainText, row.id]
+      );
+      console.log(`Migrated image_text HTML -> image_text_html for id ${row.id}`);
+    }
+
     const [rows] = await connection.query('SELECT COUNT(*) AS cnt FROM images');
     if (rows[0].cnt === 0) {
       for (let i = 0; i < DEFAULT_CAROUSEL.length; i++) {
