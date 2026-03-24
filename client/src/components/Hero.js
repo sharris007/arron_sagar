@@ -61,15 +61,21 @@ const Overlay = styled.div`
 `;
 
 function Hero() {
-  const placeholderSrc = `${process.env.PUBLIC_URL}/images/aaron_sager.png`;
+  const placeholderSrc = `${process.env.PUBLIC_URL}/images/system_images/aaron_sager.png`;
+  const [heroId, setHeroId] = useState(null);
   const [heroPath, setHeroPath] = useState(null);
+  const [heroText, setHeroText] = useState(null);
+  const [heroPosition, setHeroPosition] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchHero = useCallback(async () => {
     try {
       const res = await fetch('/api/hero');
       const data = await res.json();
+      setHeroId(data.id || null);
       setHeroPath(data.file_path || null);
+      setHeroText(data.image_text || null);
+      setHeroPosition(data.text_position || null);
     } catch (err) {
       console.error('Failed to load hero:', err);
     } finally {
@@ -79,16 +85,46 @@ function Hero() {
 
   useEffect(() => { fetchHero(); }, [fetchHero]);
 
-  const handleReplace = (url) => {
+  const handleReplace = async (url) => {
     setHeroPath(url);
+    await fetchHero();
   };
 
   const handleDelete = async () => {
     try {
       await fetch('/api/hero', { method: 'DELETE' });
+      setHeroId(null);
       setHeroPath(null);
+      setHeroText(null);
+      setHeroPosition(null);
     } catch (err) {
       console.error('Hero delete failed:', err);
+    }
+  };
+
+  const handleSaveText = async (htmlText, posLabel) => {
+    if (!heroId) return;
+    try {
+      await fetch(`/api/images/${heroId}/text`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_text: htmlText, text_position: posLabel }),
+      });
+      setHeroText(htmlText);
+      setHeroPosition(posLabel);
+    } catch (err) {
+      console.error('Hero text save failed:', err);
+    }
+  };
+
+  const handleDeleteText = async () => {
+    if (!heroId) return;
+    try {
+      await fetch(`/api/images/${heroId}/text`, { method: 'DELETE' });
+      setHeroText(null);
+      setHeroPosition(null);
+    } catch (err) {
+      console.error('Hero text delete failed:', err);
     }
   };
 
@@ -103,6 +139,10 @@ function Hero() {
       onReplace={handleReplace}
       onDelete={handleDelete}
       hasImage={!!heroPath}
+      imageText={heroText}
+      imagePosition={heroPosition}
+      onSaveText={handleSaveText}
+      onDeleteText={handleDeleteText}
     >
       {heroPath ? (
         <Section style={{ backgroundImage: `url(${heroPath})` }}>

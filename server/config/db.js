@@ -1,6 +1,7 @@
 const mysql = require('mysql2/promise');
 
 const DB_NAME = process.env.DB_NAME || 'aaron_it_out';
+const isManaged = !!process.env.JAWSDB_URL || !!process.env.CLEARDB_DATABASE_URL;
 
 const poolConfig = {
   host: process.env.DB_HOST || 'localhost',
@@ -8,7 +9,7 @@ const poolConfig = {
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || 'root',
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: isManaged ? 4 : 10,
   queueLimit: 0
 };
 
@@ -37,16 +38,20 @@ async function addColumnSafe(connection, table, column, definition) {
 }
 
 async function initDatabase() {
+  let connection;
   try {
-    const tempConnection = await mysql.createConnection(poolConfig);
-
-    await tempConnection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\``);
+    // On managed MySQL (JawsDB/ClearDB) the database already exists and the user
+    // may not have CREATE DATABASE privileges, so skip that step.
+    if (!isManaged) {
+      const tempConnection = await mysql.createConnection(poolConfig);
+      await tempConnection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\``);
+      await tempConnection.end();
+    }
     console.log(`Database "${DB_NAME}" ready`);
-    await tempConnection.end();
 
     pool = mysql.createPool({ ...poolConfig, database: DB_NAME });
 
-    const connection = await pool.getConnection();
+    connection = await pool.getConnection();
     console.log('MySQL connected successfully');
 
     await connection.query(`
@@ -115,13 +120,14 @@ async function initDatabase() {
     }
 
     console.log('Database tables initialized');
-    connection.release();
     return true;
   } catch (err) {
     console.error('MySQL connection failed:', err.message);
     console.log('Server will continue without database — form submissions logged to console only');
     pool = null;
     return false;
+  } finally {
+    if (connection) connection.release();
   }
 }
 

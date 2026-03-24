@@ -105,7 +105,7 @@ const SignInBtn = styled.button`
 `;
 
 function Header({ onLoginClick }) {
-  const defaultLogo = `${process.env.PUBLIC_URL}/images/logo.png`;
+  const defaultLogo = `${process.env.PUBLIC_URL}/images/system_images/logo.png`;
   const [logoSrc, setLogoSrc, deleteLogo, resetLogo] = usePersistedImage('header-logo', defaultLogo);
 
   return (

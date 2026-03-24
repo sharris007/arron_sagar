@@ -18,6 +18,31 @@ const fontFamilies = [
 
 const fontSizes = [10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48, 56, 64, 72];
 
+const gridToLabel = {
+  '0-0': 'top left',    '0-1': 'top center',  '0-2': 'top right',
+  '1-0': 'mid left',    '1-1': 'center',       '1-2': 'mid right',
+  '2-0': 'bot left',    '2-1': 'bot center',  '2-2': 'bot right',
+};
+const labelToGrid = Object.fromEntries(Object.entries(gridToLabel).map(([k, v]) => [v, k]));
+
+const positionMap = {
+  '0-0': { top: '15%', left: '15%' },
+  '0-1': { top: '15%', left: '50%' },
+  '0-2': { top: '15%', left: '85%' },
+  '1-0': { top: '50%', left: '15%' },
+  '1-1': { top: '50%', left: '50%' },
+  '1-2': { top: '50%', left: '85%' },
+  '2-0': { top: '85%', left: '15%' },
+  '2-1': { top: '85%', left: '50%' },
+  '2-2': { top: '85%', left: '85%' },
+};
+
+const cellLabels = [
+  ['Top Left', 'Top Center', 'Top Right'],
+  ['Mid Left', 'Center', 'Mid Right'],
+  ['Bot Left', 'Bot Center', 'Bot Right'],
+];
+
 const Wrapper = styled.div`
   position: relative;
   display: ${({ $display }) => $display || 'inline-block'};
@@ -370,25 +395,59 @@ const MoveClose = styled.button`
   }
 `;
 
-const positionMap = {
-  '0-0': { top: '15%', left: '15%' },
-  '0-1': { top: '15%', left: '50%' },
-  '0-2': { top: '15%', left: '85%' },
-  '1-0': { top: '50%', left: '15%' },
-  '1-1': { top: '50%', left: '50%' },
-  '1-2': { top: '50%', left: '85%' },
-  '2-0': { top: '85%', left: '15%' },
-  '2-1': { top: '85%', left: '50%' },
-  '2-2': { top: '85%', left: '85%' },
-};
+function buildStyledHtml(text, { fontSize, fontFamily, fontColor, bold, italic, underline }) {
+  const parts = [
+    `font-family: ${fontFamily}`,
+    `font-size: ${fontSize}px`,
+    `color: ${fontColor}`,
+  ];
+  if (bold) parts.push('font-weight: 700');
+  if (italic) parts.push('font-style: italic');
+  if (underline) parts.push('text-decoration: underline');
+  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<span style="${parts.join('; ')}">${escaped}</span>`;
+}
 
-const cellLabels = [
-  ['Top Left', 'Top Center', 'Top Right'],
-  ['Mid Left', 'Center', 'Mid Right'],
-  ['Bot Left', 'Bot Center', 'Bot Right'],
-];
+function parseStyledHtml(html) {
+  const defaults = { text: '', fontSize: 24, fontFamily: fontFamilies[0].value, fontColor: '#ffffff', bold: true, italic: false, underline: false };
+  if (!html) return defaults;
+  if (!html.includes('<')) return { ...defaults, text: html };
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const el = div.querySelector('span') || div.querySelector('p') || div;
+  const text = el.textContent || '';
+  const s = el.style;
+  let color = s.color || '#ffffff';
+  if (color.startsWith('rgb')) {
+    const m = color.match(/(\d+)/g);
+    if (m && m.length >= 3) {
+      color = '#' + m.slice(0, 3).map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
+    }
+  }
+  return {
+    text,
+    fontSize: parseInt(s.fontSize) || 24,
+    fontFamily: s.fontFamily || fontFamilies[0].value,
+    fontColor: color,
+    bold: s.fontWeight === '700' || s.fontWeight === 'bold',
+    italic: s.fontStyle === 'italic',
+    underline: (s.textDecoration || s.textDecorationLine || '').includes('underline'),
+  };
+}
 
-function UploadableImage({ children, style, className, display, width, height, shrink, onReplace, onDelete, storageKey, onMove, imageIndex, imageTotal, uploadUrl, hasImage = true }) {
+function buildDbOverlay(imageText, textPosition) {
+  if (!imageText || !textPosition) return null;
+  const gridKey = labelToGrid[textPosition];
+  if (!gridKey) return null;
+  return { html: imageText, pos: gridKey };
+}
+
+function UploadableImage({
+  children, style, className, display, width, height, shrink,
+  onReplace, onDelete, storageKey, onMove, imageIndex, imageTotal, uploadUrl, hasImage = true,
+  imageText, imagePosition, onSaveText, onDeleteText,
+}) {
+  const useDb = typeof onSaveText === 'function';
   const fileRef = useRef(null);
   const menuRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -410,8 +469,10 @@ function UploadableImage({ children, style, className, display, width, height, s
   const isFirst = imageIndex === 0;
   const isLast = imageIndex === imageTotal - 1;
 
-  const overlayKey = storageKey ? `overlay_${storageKey}` : null;
-  const [overlay, setOverlay] = useState(() => {
+  const dbOverlay = useDb ? buildDbOverlay(imageText, imagePosition) : null;
+
+  const overlayKey = !useDb && storageKey ? `overlay_${storageKey}` : null;
+  const [lsOverlay, setLsOverlay] = useState(() => {
     if (!overlayKey) return null;
     try {
       const raw = localStorage.getItem(overlayKey);
@@ -422,16 +483,27 @@ function UploadableImage({ children, style, className, display, width, height, s
     } catch { return null; }
   });
 
+  const overlay = useDb ? dbOverlay : lsOverlay;
   const hasText = !!overlay;
 
-  const saveOverlay = (item) => {
-    setOverlay(item);
-    if (overlayKey) localStorage.setItem(overlayKey, JSON.stringify(item));
+  const saveOverlay = async (item) => {
+    if (useDb) {
+      const posLabel = gridToLabel[item.pos] || item.pos;
+      const html = buildStyledHtml(item.text, item);
+      await onSaveText(html, posLabel);
+    } else {
+      setLsOverlay(item);
+      if (overlayKey) localStorage.setItem(overlayKey, JSON.stringify(item));
+    }
   };
 
-  const clearOverlay = () => {
-    setOverlay(null);
-    if (overlayKey) localStorage.removeItem(overlayKey);
+  const clearOverlay = async () => {
+    if (useDb) {
+      if (onDeleteText) await onDeleteText();
+    } else {
+      setLsOverlay(null);
+      if (overlayKey) localStorage.removeItem(overlayKey);
+    }
   };
 
   useEffect(() => {
@@ -451,14 +523,26 @@ function UploadableImage({ children, style, className, display, width, height, s
     e.stopPropagation();
     setMenuOpen(false);
     if (overlay) {
-      setEditText(overlay.text || '');
-      setSelectedCell(overlay.pos || null);
-      setFontSize(overlay.fontSize || 24);
-      setFontFamily(overlay.fontFamily || fontFamilies[0].value);
-      setFontColor(overlay.fontColor || '#ffffff');
-      setBold(overlay.bold !== false);
-      setItalic(!!overlay.italic);
-      setUnderline(!!overlay.underline);
+      if (overlay.html) {
+        const parsed = parseStyledHtml(overlay.html);
+        setEditText(parsed.text);
+        setSelectedCell(overlay.pos || null);
+        setFontSize(parsed.fontSize);
+        setFontFamily(parsed.fontFamily);
+        setFontColor(parsed.fontColor);
+        setBold(parsed.bold);
+        setItalic(parsed.italic);
+        setUnderline(parsed.underline);
+      } else {
+        setEditText(overlay.text || '');
+        setSelectedCell(overlay.pos || null);
+        setFontSize(overlay.fontSize || 24);
+        setFontFamily(overlay.fontFamily || fontFamilies[0].value);
+        setFontColor(overlay.fontColor || '#ffffff');
+        setBold(overlay.bold !== false);
+        setItalic(!!overlay.italic);
+        setUnderline(!!overlay.underline);
+      }
     } else {
       setEditText('');
       setSelectedCell(null);
@@ -479,8 +563,8 @@ function UploadableImage({ children, style, className, display, width, height, s
     setDeleteTextOpen(true);
   };
 
-  const handleConfirmDeleteText = () => {
-    clearOverlay();
+  const handleConfirmDeleteText = async () => {
+    await clearOverlay();
     setDeleteTextOpen(false);
   };
 
@@ -490,20 +574,20 @@ function UploadableImage({ children, style, className, display, width, height, s
     setMoveMode(true);
   };
 
-  const handleDeleteClick = (e) => {
+  const handleDeleteClick = async (e) => {
     e.stopPropagation();
     setMenuOpen(false);
-    clearOverlay();
+    await clearOverlay();
     if (onDelete) onDelete();
   };
 
-  const handleApply = () => {
+  const handleApply = async () => {
     const errs = {};
     if (!editText.trim()) errs.text = 'Please enter text';
     if (!selectedCell) errs.position = 'Please select a position';
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
-    saveOverlay({
+    await saveOverlay({
       pos: selectedCell,
       text: editText.trim(),
       fontSize,
@@ -552,20 +636,27 @@ function UploadableImage({ children, style, className, display, width, height, s
       {children}
       {overlay && pos && (
         <TextOverlay>
-          <OverlayText
-            style={{
-              top: pos.top,
-              left: pos.left,
-              fontFamily: overlay.fontFamily || "'Inter', sans-serif",
-              fontSize: `${overlay.fontSize || 18}px`,
-              color: overlay.fontColor || '#fff',
-              fontWeight: overlay.bold !== false ? '700' : '400',
-              fontStyle: overlay.italic ? 'italic' : 'normal',
-              textDecoration: overlay.underline ? 'underline' : 'none',
-            }}
-          >
-            {overlay.text}
-          </OverlayText>
+          {overlay.html ? (
+            <OverlayText
+              style={{ top: pos.top, left: pos.left }}
+              dangerouslySetInnerHTML={{ __html: overlay.html }}
+            />
+          ) : (
+            <OverlayText
+              style={{
+                top: pos.top,
+                left: pos.left,
+                fontFamily: overlay.fontFamily || "'Inter', sans-serif",
+                fontSize: `${overlay.fontSize || 18}px`,
+                color: overlay.fontColor || '#fff',
+                fontWeight: overlay.bold !== false ? '700' : '400',
+                fontStyle: overlay.italic ? 'italic' : 'normal',
+                textDecoration: overlay.underline ? 'underline' : 'none',
+              }}
+            >
+              {overlay.text}
+            </OverlayText>
+          )}
         </TextOverlay>
       )}
       <KebabBtn onClick={toggleMenu} title="Image options">
@@ -712,18 +803,25 @@ function UploadableImage({ children, style, className, display, width, height, s
               Are you sure you want to delete this text?
             </p>
             <Preview>
-              <span style={{
-                fontFamily: overlay.fontFamily || "'Inter', sans-serif",
-                fontSize: `${Math.min(overlay.fontSize || 18, 28)}px`,
-                color: overlay.fontColor || '#fff',
-                fontWeight: overlay.bold !== false ? '700' : '400',
-                fontStyle: overlay.italic ? 'italic' : 'normal',
-                textDecoration: overlay.underline ? 'underline' : 'none',
-                textShadow: '-1px -1px 0 rgba(0,0,0,0.8), 1px -1px 0 rgba(0,0,0,0.8), -1px 1px 0 rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.8)',
-                textAlign: 'center',
-              }}>
-                {overlay.text}
-              </span>
+              {overlay.html ? (
+                <span
+                  style={{ textShadow: '-1px -1px 0 rgba(0,0,0,0.8), 1px -1px 0 rgba(0,0,0,0.8), -1px 1px 0 rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.8)', textAlign: 'center' }}
+                  dangerouslySetInnerHTML={{ __html: overlay.html }}
+                />
+              ) : (
+                <span style={{
+                  fontFamily: overlay.fontFamily || "'Inter', sans-serif",
+                  fontSize: `${Math.min(overlay.fontSize || 18, 28)}px`,
+                  color: overlay.fontColor || '#fff',
+                  fontWeight: overlay.bold !== false ? '700' : '400',
+                  fontStyle: overlay.italic ? 'italic' : 'normal',
+                  textDecoration: overlay.underline ? 'underline' : 'none',
+                  textShadow: '-1px -1px 0 rgba(0,0,0,0.8), 1px -1px 0 rgba(0,0,0,0.8), -1px 1px 0 rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.8)',
+                  textAlign: 'center',
+                }}>
+                  {overlay.text}
+                </span>
+              )}
             </Preview>
             <BtnRow>
               <ApplyBtn onClick={handleConfirmDeleteText} style={{ background: '#c62828' }}>
