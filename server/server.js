@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
 const { getPool, initDatabase } = require('./config/db');
 
 const app = express();
@@ -11,51 +12,27 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// ── Cloudinary config ─────────────────────────────────────
+// SDK auto-reads CLOUDINARY_URL env var if present.
+// Fall back to explicit config for local dev.
+if (!process.env.CLOUDINARY_URL) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'priority-endeavors-llc',
+    api_key: process.env.CLOUDINARY_API_KEY || '556878598869775',
+    api_secret: process.env.CLOUDINARY_API_SECRET || 'PS33GlwsIV0G1tAn_AAd76_A8qk',
+  });
+}
+
+// ── Local dirs (kept for static serving of legacy/default images) ──
 const imagesDir = path.join(__dirname, '../client/public/images');
 const carouselDir = path.join(imagesDir, 'carousel');
 const heroDir = path.join(imagesDir, 'hero');
-const archiveDir = path.join(imagesDir, 'archive');
 
-if (!fs.existsSync(carouselDir)) fs.mkdirSync(carouselDir, { recursive: true });
-if (!fs.existsSync(heroDir)) fs.mkdirSync(heroDir, { recursive: true });
-if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
+[carouselDir, heroDir].forEach(d => {
+  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+});
 
-function archiveFile(filePath) {
-  const publicRoot = path.join(__dirname, '../client/public');
-  const fullSrc = path.join(publicRoot, filePath);
-  if (!fs.existsSync(fullSrc)) return;
-  const basename = path.basename(filePath);
-  const dest = path.join(archiveDir, basename);
-  if (fs.existsSync(dest)) {
-    fs.unlinkSync(fullSrc);
-    console.log(`Duplicate in archive, deleted source: ${basename}`);
-    return;
-  }
-  try {
-    fs.renameSync(fullSrc, dest);
-    console.log(`Archived: ${basename}`);
-  } catch (err) {
-    try {
-      fs.copyFileSync(fullSrc, dest);
-      fs.unlinkSync(fullSrc);
-      console.log(`Archived (copy+delete): ${basename}`);
-    } catch (e) {
-      console.error('Archive failed:', e.message);
-    }
-  }
-}
-
-function makeFilename(origName) {
-  const ext = path.extname(origName);
-  const base = path.basename(origName, ext)
-    .replace(/[^a-zA-Z0-9_-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .toLowerCase()
-    .substring(0, 50);
-  return `${base}-${Date.now()}${ext}`;
-}
-
+// ── Multer – memory storage so we can stream to Cloudinary ──
 const imageFilter = (req, file, cb) => {
   const allowed = /jpeg|jpg|png|gif|webp|svg/;
   const ext = allowed.test(path.extname(file.originalname).toLowerCase());
@@ -63,75 +40,70 @@ const imageFilter = (req, file, cb) => {
   cb(null, ext && mime);
 };
 
-const generalUpload = multer({
-  storage: multer.diskStorage({
-    destination: imagesDir,
-    filename: (req, file, cb) => cb(null, makeFilename(file.originalname))
-  }),
+const upload = multer({
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: imageFilter
+  fileFilter: imageFilter,
 });
 
-const carouselUpload = multer({
-  storage: multer.diskStorage({
-    destination: carouselDir,
-    filename: (req, file, cb) => cb(null, makeFilename(file.originalname))
-  }),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: imageFilter
-});
+// ── Cloudinary helpers ────────────────────────────────────
+function uploadToCloudinary(buffer, folder, originalName) {
+  return new Promise((resolve, reject) => {
+    const base = path.basename(originalName, path.extname(originalName))
+      .replace(/[^a-zA-Z0-9_-]/g, '-')
+      .substring(0, 50);
+    const publicId = `${base}-${Date.now()}`;
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: `aaron_sager/${folder}`, public_id: publicId, resource_type: 'image' },
+      (err, result) => (err ? reject(err) : resolve(result))
+    );
+    stream.end(buffer);
+  });
+}
 
-const heroUpload = multer({
-  storage: multer.diskStorage({
-    destination: heroDir,
-    filename: (req, file, cb) => cb(null, makeFilename(file.originalname))
-  }),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: imageFilter
-});
+function extractPublicId(url) {
+  if (!url || !url.includes('cloudinary.com')) return null;
+  const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
+  return match ? match[1] : null;
+}
 
-app.use(express.static(path.join(__dirname, '../client/build')));
-app.use(express.static(path.join(__dirname, '../client/public')));
-
-app.post('/api/upload', generalUpload.single('image'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'No valid image file provided' });
-  }
-  const imageUrl = `/images/${req.file.filename}`;
-  console.log('Image uploaded to public/images:', req.file.filename);
-  res.json({ success: true, imageUrl, filename: req.file.filename });
-});
-
-async function ensureHeroInDb() {
-  const pool = getPool();
-  if (!pool) return;
+async function deleteFromCloudinary(url) {
+  const publicId = extractPublicId(url);
+  if (!publicId) return;
   try {
-    const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM images WHERE section = 'hero'");
-    if (rows[0].cnt > 0) return;
-    const allowed = /\.(jpe?g|png|gif|webp|svg)$/i;
-    const files = fs.readdirSync(heroDir).filter(f => allowed.test(f));
-    if (files.length > 0) {
-      const filePath = `/images/hero/${files[0]}`;
-      await pool.query(
-        "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'hero', ?, FALSE)",
-        [filePath]
-      );
-      console.log('Imported existing hero image into DB:', filePath);
-    }
+    await cloudinary.uploader.destroy(publicId);
+    console.log('Cloudinary deleted:', publicId);
   } catch (err) {
-    console.error('Hero auto-import failed:', err.message);
+    console.error('Cloudinary delete failed:', err.message);
   }
 }
 
-// ── Hero API (DB-backed) ──────────────────────────────────
+// ── Static file serving (legacy / default images) ────────
+app.use(express.static(path.join(__dirname, '../client/build')));
+app.use(express.static(path.join(__dirname, '../client/public')));
+
+// ── General upload (unused currently but kept for flexibility) ──
+app.post('/api/upload', upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'No valid image file provided' });
+  }
+  try {
+    const result = await uploadToCloudinary(req.file.buffer, 'general', req.file.originalname);
+    console.log('Image uploaded to Cloudinary:', result.secure_url);
+    res.json({ success: true, imageUrl: result.secure_url, filename: result.public_id });
+  } catch (err) {
+    console.error('Cloudinary upload failed:', err.message);
+    res.status(500).json({ success: false, error: 'Upload failed' });
+  }
+});
+
+// ── Hero API ──────────────────────────────────────────────
 
 app.get('/api/hero', async (req, res) => {
   const pool = getPool();
   if (!pool) return res.json({ success: true, file_path: null });
   try {
-    const [rows] = await pool.query(
-      "SELECT * FROM images WHERE section = 'hero' LIMIT 1"
-    );
+    const [rows] = await pool.query("SELECT * FROM images WHERE section = 'hero' LIMIT 1");
     if (rows.length > 0) {
       const row = rows[0];
       res.json({
@@ -150,33 +122,35 @@ app.get('/api/hero', async (req, res) => {
   }
 });
 
-app.post('/api/hero/upload', heroUpload.single('image'), async (req, res) => {
+app.post('/api/hero/upload', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No valid image file provided' });
   }
-  const filePath = `/images/hero/${req.file.filename}`;
   const pool = getPool();
 
-  const allowed = /\.(jpe?g|png|gif|webp|svg)$/i;
-  const existing = fs.readdirSync(heroDir).filter(f => allowed.test(f) && f !== req.file.filename);
-  existing.forEach(f => archiveFile(`/images/hero/${f}`));
-
-  if (!pool) {
-    console.log('Hero image uploaded (no DB):', filePath);
-    return res.json({ success: true, file_path: filePath });
-  }
-
   try {
-    await pool.query("DELETE FROM images WHERE section = 'hero'");
-    const [result] = await pool.query(
-      "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'hero', ?, FALSE)",
-      [filePath]
-    );
-    console.log('Hero image uploaded:', filePath);
-    res.json({ success: true, id: result.insertId, file_path: filePath });
+    const result = await uploadToCloudinary(req.file.buffer, 'hero', req.file.originalname);
+    const imageUrl = result.secure_url;
+
+    if (pool) {
+      const [existing] = await pool.query("SELECT * FROM images WHERE section = 'hero'");
+      for (const row of existing) {
+        await deleteFromCloudinary(row.file_path);
+      }
+      await pool.query("DELETE FROM images WHERE section = 'hero'");
+      const [ins] = await pool.query(
+        "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'hero', ?, FALSE)",
+        [imageUrl]
+      );
+      console.log('Hero image uploaded to Cloudinary:', imageUrl);
+      res.json({ success: true, id: ins.insertId, file_path: imageUrl });
+    } else {
+      console.log('Hero image uploaded (no DB):', imageUrl);
+      res.json({ success: true, file_path: imageUrl });
+    }
   } catch (err) {
-    console.error('Hero DB insert failed:', err.message);
-    res.json({ success: true, file_path: filePath });
+    console.error('Hero upload failed:', err.message);
+    res.status(500).json({ success: false, error: 'Upload failed' });
   }
 });
 
@@ -185,18 +159,14 @@ app.delete('/api/hero', async (req, res) => {
   if (pool) {
     try {
       const [rows] = await pool.query("SELECT * FROM images WHERE section = 'hero'");
-      if (rows.length > 0 && rows[0].file_path) {
-        archiveFile(rows[0].file_path);
+      for (const row of rows) {
+        await deleteFromCloudinary(row.file_path);
       }
       await pool.query("DELETE FROM images WHERE section = 'hero'");
     } catch (err) {
       console.error('Hero delete failed:', err.message);
     }
   }
-  const allowedExt = /\.(jpe?g|png|gif|webp|svg)$/i;
-  try {
-    fs.readdirSync(heroDir).filter(f => allowedExt.test(f)).forEach(f => archiveFile(`/images/hero/${f}`));
-  } catch (e) { /* ignore */ }
   res.json({ success: true });
 });
 
@@ -235,7 +205,7 @@ app.delete('/api/images/:id/text', async (req, res) => {
   }
 });
 
-// ── Carousel API ───────────────────────────────────────────
+// ── Carousel API ──────────────────────────────────────────
 
 app.get('/api/carousel', async (req, res) => {
   const pool = getPool();
@@ -251,42 +221,44 @@ app.get('/api/carousel', async (req, res) => {
   }
 });
 
-app.post('/api/carousel/image', carouselUpload.single('image'), async (req, res) => {
+app.post('/api/carousel/image', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No valid image file provided' });
   }
-  const filePath = `/images/carousel/${req.file.filename}`;
   const pool = getPool();
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
+    const result = await uploadToCloudinary(req.file.buffer, 'carousel', req.file.originalname);
+    const imageUrl = result.secure_url;
     await pool.query("UPDATE images SET position = position + 1 WHERE section = 'carousel'");
-    const [result] = await pool.query(
+    const [ins] = await pool.query(
       "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'carousel', ?, FALSE)",
-      [filePath]
+      [imageUrl]
     );
-    console.log('Carousel image added:', filePath);
-    res.json({ success: true, id: result.insertId, file_path: filePath });
+    console.log('Carousel image added (Cloudinary):', imageUrl);
+    res.json({ success: true, id: ins.insertId, file_path: imageUrl });
   } catch (err) {
     console.error('Carousel image insert failed:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/carousel/testimonial', carouselUpload.single('image'), async (req, res) => {
+app.post('/api/carousel/testimonial', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No valid image file provided' });
   }
-  const filePath = `/images/carousel/${req.file.filename}`;
   const pool = getPool();
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
+    const result = await uploadToCloudinary(req.file.buffer, 'carousel', req.file.originalname);
+    const imageUrl = result.secure_url;
     await pool.query("UPDATE images SET position = position + 1 WHERE section = 'carousel'");
-    const [result] = await pool.query(
+    const [ins] = await pool.query(
       "INSERT INTO images (position, item_type, section, file_path, is_default) VALUES (0, 'image', 'carousel', ?, FALSE)",
-      [filePath]
+      [imageUrl]
     );
-    console.log('Testimonial image added to carousel:', filePath);
-    res.json({ success: true, id: result.insertId, file_path: filePath });
+    console.log('Testimonial added (Cloudinary):', imageUrl);
+    res.json({ success: true, id: ins.insertId, file_path: imageUrl });
   } catch (err) {
     console.error('Carousel testimonial insert failed:', err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -327,7 +299,7 @@ app.delete('/api/carousel/:id', async (req, res) => {
       [item.position]
     );
     if (item.file_path) {
-      archiveFile(item.file_path);
+      await deleteFromCloudinary(item.file_path);
     }
     console.log('Carousel item deleted:', id);
     res.json({ success: true });
@@ -337,21 +309,7 @@ app.delete('/api/carousel/:id', async (req, res) => {
   }
 });
 
-// ── Archive API ────────────────────────────────────────────
-
-app.post('/api/archive-image', async (req, res) => {
-  const { filePath } = req.body;
-  if (!filePath) return res.status(400).json({ success: false, error: 'No filePath provided' });
-  try {
-    archiveFile(filePath);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Archive request failed:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ── Leads API ──────────────────────────────────────────────
+// ── Leads API ─────────────────────────────────────────────
 
 app.post('/api/find-professionals', async (req, res) => {
   const { name, email, phone, weddingDate, weddingLocation, okToText } = req.body;
@@ -390,7 +348,6 @@ app.get('*', (req, res) => {
 });
 
 initDatabase().then(async () => {
-  await ensureHeroInDb();
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
