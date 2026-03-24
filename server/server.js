@@ -10,6 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const APP_NAME = process.env.APP_NAME || 'Aaron Sager';
 const ENVIRONMENT = process.env.NODE_ENV || 'development';
+const CLOUD_ROOT = APP_NAME.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+$/, '') + '_' + ENVIRONMENT;
 
 app.use(cors());
 app.use(express.json());
@@ -67,7 +68,7 @@ function uploadToCloudinary(buffer, folder, originalName, { title, description }
 
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: `aaron_sager/${folder}`,
+        folder: `${CLOUD_ROOT}/${folder}`,
         public_id: publicId,
         resource_type: 'image',
         context: ctxParts.join('|'),
@@ -88,7 +89,7 @@ async function archiveInCloudinary(url) {
   const publicId = extractPublicId(url);
   if (!publicId) return;
   const filename = publicId.split('/').pop();
-  const archiveId = `aaron_sager/archive/${filename}`;
+  const archiveId = `${CLOUD_ROOT}/archive/${filename}`;
   try {
     await cloudinary.uploader.rename(publicId, archiveId, { overwrite: true });
     console.log('Cloudinary archived:', publicId, '->', archiveId);
@@ -327,7 +328,10 @@ app.delete('/api/carousel/:id', async (req, res) => {
       "UPDATE images SET position = position - 1 WHERE section = 'carousel' AND position > ?",
       [item.position]
     );
-    console.log('Carousel item deleted:', id);
+    if (item.file_path) {
+      await archiveInCloudinary(item.file_path);
+    }
+    console.log('Carousel item deleted (archived):', id);
     res.json({ success: true });
   } catch (err) {
     console.error('Carousel delete failed:', err.message);
@@ -376,5 +380,6 @@ app.get('*', (req, res) => {
 initDatabase().then(async () => {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`Cloudinary root folder: ${CLOUD_ROOT}`);
   });
 });
