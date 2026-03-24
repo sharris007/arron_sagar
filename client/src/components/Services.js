@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import UploadableImage from './UploadableImage';
+import usePersistedImage from '../hooks/usePersistedImage';
 
 const Section = styled.section`
   background-color: #f9f9f9;
@@ -104,23 +106,10 @@ const Card = styled.div`
   }
 `;
 
-const IconWrap = styled.div`
-  width: 74px;
-  height: 74px;
-  margin-bottom: 20px;
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-
-  @media (max-width: 639px) {
-    width: 50px;
-    height: 50px;
-    margin-bottom: 0;
-    margin-right: 17px;
-    flex-shrink: 0;
-  }
+const IconImg = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 `;
 
 const Info = styled.div`
@@ -152,7 +141,7 @@ const Price = styled.p`
   text-transform: lowercase;
 `;
 
-const services = [
+const defaultServices = [
   { icon: '/images/reel.svg', name: 'Wedding Video', price: 'starting from $995', link: '/video', alt: 'Wedding Video Icon' },
   { icon: '/images/camera.svg', name: 'Wedding Photo', price: 'starting from $995', link: '/photo', alt: 'Wedding Photography Icon' },
   { icon: '/images/subwoofer.svg', name: 'Wedding DJ', price: 'starting at $995', link: '/dj', alt: 'Wedding DJ Icon' }
@@ -160,6 +149,37 @@ const services = [
 
 function Services() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 639);
+  const iconDefaults = defaultServices.map(s => `${process.env.PUBLIC_URL}${s.icon}`);
+  const [icon0, setIcon0, , resetIcon0] = usePersistedImage('svc-icon-0', iconDefaults[0]);
+  const [icon1, setIcon1, , resetIcon1] = usePersistedImage('svc-icon-1', iconDefaults[1]);
+  const [icon2, setIcon2, , resetIcon2] = usePersistedImage('svc-icon-2', iconDefaults[2]);
+  const icons = [icon0 || iconDefaults[0], icon1 || iconDefaults[1], icon2 || iconDefaults[2]];
+  const iconSetters = [setIcon0, setIcon1, setIcon2];
+  const iconResetters = [resetIcon0, resetIcon1, resetIcon2];
+  const [bgImage, setBgImageState, , resetBg] = usePersistedImage('svc-bg', '');
+
+  const [svcOrder, setSvcOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('services_order');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [0, 1, 2];
+  });
+
+  const saveSvcOrder = (newOrder) => {
+    setSvcOrder(newOrder);
+    localStorage.setItem('services_order', JSON.stringify(newOrder));
+  };
+
+  const handleSvcMove = (origIdx, direction) => {
+    const currentPos = svcOrder.indexOf(origIdx);
+    if (currentPos < 0) return;
+    const swapPos = direction === 'left' ? currentPos - 1 : currentPos + 1;
+    if (swapPos < 0 || swapPos >= svcOrder.length) return;
+    const newOrder = [...svcOrder];
+    [newOrder[currentPos], newOrder[swapPos]] = [newOrder[swapPos], newOrder[currentPos]];
+    saveSvcOrder(newOrder);
+  };
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 639);
@@ -167,32 +187,47 @@ function Services() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const bgImage = isMobile
+  const currentBg = bgImage || (isMobile
     ? `${process.env.PUBLIC_URL}/images/flower-bg.png`
-    : `${process.env.PUBLIC_URL}/images/services-background.jpg`;
+    : `${process.env.PUBLIC_URL}/images/services-background.jpg`);
 
   return (
-    <Section style={{ backgroundImage: `url(${bgImage})` }}>
-      <Center>
-        <Intro>
-          <SmallText>Learn more about our</SmallText>
-          <BigText>Wedding Services</BigText>
-        </Intro>
-        <Cards>
-          {services.map((svc, i) => (
-            <Card key={i}>
-              <IconWrap>
-                <img src={`${process.env.PUBLIC_URL}${svc.icon}`} alt={svc.alt} />
-              </IconWrap>
-              <Info>
-                <ServiceName href={svc.link}>{svc.name}</ServiceName>
-                <Price>{svc.price}</Price>
-              </Info>
-            </Card>
-          ))}
-        </Cards>
-      </Center>
-    </Section>
+    <UploadableImage display="block" width="100%" storageKey="svc-bg" onReplace={(url) => setBgImageState(url)} onDelete={resetBg}>
+      <Section style={{ backgroundImage: `url(${currentBg})` }}>
+        <Center>
+          <Intro>
+            <SmallText>Learn more about our</SmallText>
+            <BigText>Wedding Services</BigText>
+          </Intro>
+          <Cards>
+            {svcOrder.map((origIdx, visIdx) => {
+              const svc = defaultServices[origIdx];
+              return (
+                <Card key={origIdx}>
+                  <UploadableImage
+                    width="74px"
+                    height="74px"
+                    storageKey={`svc-icon-${origIdx}`}
+                    onReplace={(url) => iconSetters[origIdx](url)}
+                    onDelete={() => iconResetters[origIdx]()}
+                    onMove={(dir) => handleSvcMove(origIdx, dir)}
+                    imageIndex={visIdx}
+                    imageTotal={svcOrder.length}
+                    style={{ marginBottom: 20 }}
+                  >
+                    <IconImg src={icons[origIdx]} alt={svc.alt} />
+                  </UploadableImage>
+                  <Info>
+                    <ServiceName href={svc.link}>{svc.name}</ServiceName>
+                    <Price>{svc.price}</Price>
+                  </Info>
+                </Card>
+              );
+            })}
+          </Cards>
+        </Center>
+      </Section>
+    </UploadableImage>
   );
 }
 

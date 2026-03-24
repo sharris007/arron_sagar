@@ -1,5 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
+import UploadableImage from './UploadableImage';
+import usePersistedImage from '../hooks/usePersistedImage';
 
 const StyledHeader = styled.header`
   position: sticky;
@@ -103,14 +105,20 @@ const SignInBtn = styled.button`
 `;
 
 function Header({ onLoginClick }) {
+  const defaultLogo = `${process.env.PUBLIC_URL}/images/system_images/logo.png`;
+  const [logoSrc, setLogoSrc, deleteLogo, resetLogo] = usePersistedImage('header-logo', defaultLogo);
+
   return (
     <StyledHeader>
       <Container>
         <LogoLink href="/">
-          <LogoImg
-            src={`${process.env.PUBLIC_URL}/images/logo.png`}
-            alt="Aaron It Out Photography"
-          />
+          <UploadableImage
+            storageKey="header-logo"
+            onReplace={(url) => setLogoSrc(url)}
+            onDelete={resetLogo}
+          >
+            <LogoImg src={logoSrc || defaultLogo} alt="Aaron It Out Photography" />
+          </UploadableImage>
         </LogoLink>
         <Nav>
           <GetStartedBtn href="#FindLocalPros">Get Started</GetStartedBtn>

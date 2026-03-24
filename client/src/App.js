@@ -37,7 +37,6 @@ const GlobalStyle = createGlobalStyle`
 
 function App() {
   const [showLogin, setShowLogin] = useState(false);
-
   return (
     <>
       <GlobalStyle />
