@@ -100,7 +100,9 @@ async function initDatabase() {
         image_text_html TEXT,
         text_position VARCHAR(50),
         title VARCHAR(255),
-        description TEXT
+        description TEXT,
+        image_service VARCHAR(255),
+        image_place VARCHAR(255)
       )
     `);
 
@@ -111,6 +113,8 @@ async function initDatabase() {
     await addColumnSafe(connection, 'images', 'text_position', 'VARCHAR(50)');
     await addColumnSafe(connection, 'images', 'title', 'VARCHAR(255)');
     await addColumnSafe(connection, 'images', 'description', 'TEXT');
+    await addColumnSafe(connection, 'images', 'image_service', 'VARCHAR(255)');
+    await addColumnSafe(connection, 'images', 'image_place', 'VARCHAR(255)');
 
     // Migrate: move HTML from image_text into image_text_html, leave plain text in image_text
     const [htmlRows] = await connection.query(

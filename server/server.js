@@ -137,6 +137,8 @@ app.get('/api/hero', async (req, res) => {
         text_position: row.text_position || null,
         title: row.title || null,
         description: row.description || null,
+        image_service: row.image_service || null,
+        image_place: row.image_place || null,
       });
     } else {
       res.json({ success: true, file_path: null });
@@ -153,6 +155,8 @@ app.post('/api/hero/upload', upload.single('image'), async (req, res) => {
   }
   const title = req.body.title || '';
   const description = req.body.description || '';
+  const image_service = req.body.image_service || '';
+  const image_place = req.body.image_place || '';
   const pool = getPool();
 
   try {
@@ -166,8 +170,8 @@ app.post('/api/hero/upload', upload.single('image'), async (req, res) => {
       }
       await pool.query("DELETE FROM images WHERE section = 'hero'");
       const [ins] = await pool.query(
-        "INSERT INTO images (position, item_type, section, file_path, is_default, title, description) VALUES (0, 'image', 'hero', ?, FALSE, ?, ?)",
-        [imageUrl, title || null, description || null]
+        "INSERT INTO images (position, item_type, section, file_path, is_default, title, description, image_service, image_place) VALUES (0, 'image', 'hero', ?, FALSE, ?, ?, ?, ?)",
+        [imageUrl, title || null, description || null, image_service || null, image_place || null]
       );
       console.log('Hero image uploaded to Cloudinary:', imageUrl);
       res.json({ success: true, id: ins.insertId, file_path: imageUrl });
@@ -201,13 +205,13 @@ app.delete('/api/hero', async (req, res) => {
 
 app.put('/api/images/:id/text', async (req, res) => {
   const { id } = req.params;
-  const { image_text, image_text_html, text_position } = req.body;
+  const { image_text, image_text_html, text_position, image_service, image_place } = req.body;
   const pool = getPool();
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
     await pool.query(
-      'UPDATE images SET image_text = ?, image_text_html = ?, text_position = ? WHERE id = ?',
-      [image_text || null, image_text_html || null, text_position || null, id]
+      'UPDATE images SET image_text = ?, image_text_html = ?, text_position = ?, image_service = ?, image_place = ? WHERE id = ?',
+      [image_text || null, image_text_html || null, text_position || null, image_service || null, image_place || null, id]
     );
     res.json({ success: true });
   } catch (err) {
@@ -222,12 +226,29 @@ app.delete('/api/images/:id/text', async (req, res) => {
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
     await pool.query(
-      'UPDATE images SET image_text = NULL, image_text_html = NULL, text_position = NULL WHERE id = ?',
+      'UPDATE images SET image_text = NULL, image_text_html = NULL, text_position = NULL, image_service = NULL, image_place = NULL WHERE id = ?',
       [id]
     );
     res.json({ success: true });
   } catch (err) {
     console.error('Text delete failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/images/:id/quote', async (req, res) => {
+  const { id } = req.params;
+  const { quote_text, quote_author, quote_service, quote_location } = req.body;
+  const pool = getPool();
+  if (!pool) return res.status(500).json({ success: false, error: 'No database' });
+  try {
+    await pool.query(
+      'UPDATE images SET quote_text = ?, quote_author = ?, quote_service = ?, quote_location = ? WHERE id = ?',
+      [quote_text || null, quote_author || null, quote_service || null, quote_location || null, id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Quote update failed:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -254,6 +275,8 @@ app.post('/api/carousel/image', upload.single('image'), async (req, res) => {
   }
   const title = req.body.title || '';
   const description = req.body.description || '';
+  const image_service = req.body.image_service || '';
+  const image_place = req.body.image_place || '';
   const pool = getPool();
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
@@ -261,8 +284,8 @@ app.post('/api/carousel/image', upload.single('image'), async (req, res) => {
     const imageUrl = result.secure_url;
     await pool.query("UPDATE images SET position = position + 1 WHERE section = 'carousel'");
     const [ins] = await pool.query(
-      "INSERT INTO images (position, item_type, section, file_path, is_default, title, description) VALUES (0, 'image', 'carousel', ?, FALSE, ?, ?)",
-      [imageUrl, title || null, description || null]
+      "INSERT INTO images (position, item_type, section, file_path, is_default, title, description, image_service, image_place) VALUES (0, 'image', 'carousel', ?, FALSE, ?, ?, ?, ?)",
+      [imageUrl, title || null, description || null, image_service || null, image_place || null]
     );
     console.log('Carousel image added (Cloudinary):', imageUrl);
     res.json({ success: true, id: ins.insertId, file_path: imageUrl });
@@ -285,8 +308,8 @@ app.post('/api/carousel/testimonial', upload.single('image'), async (req, res) =
     const imageUrl = result.secure_url;
     await pool.query("UPDATE images SET position = position + 1 WHERE section = 'carousel'");
     const [ins] = await pool.query(
-      "INSERT INTO images (position, item_type, section, file_path, is_default, title, description) VALUES (0, 'image', 'carousel', ?, FALSE, ?, ?)",
-      [imageUrl, title || null, description || null]
+      "INSERT INTO images (position, item_type, section, file_path, is_default, title, description, quote_text, quote_author, quote_service, quote_location) VALUES (0, 'quote', 'carousel', ?, FALSE, ?, ?, ?, ?, ?, ?)",
+      [imageUrl, title || null, description || null, req.body.quote_text || null, req.body.quote_author || null, req.body.quote_service || null, req.body.quote_location || null]
     );
     console.log('Testimonial added (Cloudinary):', imageUrl);
     res.json({ success: true, id: ins.insertId, file_path: imageUrl });
@@ -303,6 +326,12 @@ app.post('/api/carousel/:id/replace', upload.single('image'), async (req, res) =
   }
   const title = req.body.title || '';
   const description = req.body.description || '';
+  const image_service = req.body.image_service || '';
+  const image_place = req.body.image_place || '';
+  const quote_text = req.body.quote_text || null;
+  const quote_author = req.body.quote_author || null;
+  const quote_service = req.body.quote_service || null;
+  const quote_location = req.body.quote_location || null;
   const pool = getPool();
   if (!pool) return res.status(500).json({ success: false, error: 'No database' });
   try {
@@ -314,10 +343,17 @@ app.post('/api/carousel/:id/replace', upload.single('image'), async (req, res) =
     }
     const result = await uploadToCloudinary(req.file.buffer, 'carousel', req.file.originalname, { title, description });
     const imageUrl = result.secure_url;
-    await pool.query(
-      'UPDATE images SET file_path = ?, title = ?, description = ? WHERE id = ?',
-      [imageUrl, title || null, description || null, id]
-    );
+    if (quote_text !== null || quote_author !== null) {
+      await pool.query(
+        'UPDATE images SET file_path = ?, title = ?, description = ?, quote_text = ?, quote_author = ?, quote_service = ?, quote_location = ? WHERE id = ?',
+        [imageUrl, title || null, description || null, quote_text, quote_author, quote_service, quote_location, id]
+      );
+    } else {
+      await pool.query(
+        'UPDATE images SET file_path = ?, title = ?, description = ?, image_service = ?, image_place = ? WHERE id = ?',
+        [imageUrl, title || null, description || null, image_service || null, image_place || null, id]
+      );
+    }
     console.log('Carousel image replaced:', id, '->', imageUrl);
     res.json({ success: true, id: Number(id), file_path: imageUrl });
   } catch (err) {

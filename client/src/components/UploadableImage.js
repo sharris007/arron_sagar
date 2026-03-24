@@ -50,6 +50,13 @@ const Wrapper = styled.div`
   height: ${({ $height }) => $height || 'auto'};
   flex-shrink: ${({ $shrink }) => $shrink ?? 'initial'};
   overflow: visible;
+  transition: ${({ $animating }) => $animating ? 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1)' : 'none'};
+  transform: ${({ $slideDir, $slideDistance }) =>
+    $slideDir === 'left' ? `translateX(-${$slideDistance}px) scale(1.08)` :
+    $slideDir === 'right' ? `translateX(${$slideDistance}px) scale(1.08)` :
+    'none'};
+  z-index: ${({ $slideDir }) => $slideDir ? 20 : 'auto'};
+  box-shadow: ${({ $slideDir }) => $slideDir ? '0 12px 40px rgba(0, 0, 0, 0.5)' : 'none'};
 `;
 
 const KebabBtn = styled.button`
@@ -149,20 +156,43 @@ const EditModal = styled.div`
   right: 0;
   bottom: 0;
   z-index: 1000;
-  background: rgba(0, 0, 0, 0.6);
+  background: ${({ $dragging }) => $dragging ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.6)'};
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.25s ease;
 `;
 
 const EditPanel = styled.div`
   background: #fff;
   border-radius: 12px;
   padding: 30px;
+  padding-top: 10px;
   width: 420px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  cursor: default;
+  transition: ${({ $noDragTransition }) => $noDragTransition ? 'none' : 'transform 0.3s ease'};
+`;
+
+const DragHandle = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0 4px;
+  cursor: grab;
+  user-select: none;
+  &:active { cursor: grabbing; }
+`;
+
+const DragGrip = styled.div`
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: #ccc;
+  transition: background 0.2s;
+  ${DragHandle}:hover & { background: #999; }
 `;
 
 const EditTitle = styled.h3`
@@ -283,21 +313,24 @@ const GridLabel = styled.p`
 const Grid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
-  margin-bottom: 20px;
+  gap: 5px;
+  margin-bottom: 16px;
+  max-width: 280px;
+  margin-left: auto;
+  margin-right: auto;
   border: 2px solid ${({ $error }) => $error ? '#c62828' : 'transparent'};
   border-radius: 8px;
   padding: ${({ $error }) => $error ? '4px' : '0'};
 `;
 
 const GridCell = styled.button`
-  aspect-ratio: 1;
+  padding: 10px 4px;
   border: 2px solid ${({ $selected }) => $selected ? '#003863' : '#d6d6d6'};
   border-radius: 6px;
   background: ${({ $selected }) => $selected ? '#003863' : '#f5f7fa'};
   color: ${({ $selected }) => $selected ? '#fff' : '#999'};
   font-family: 'Inter', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -566,8 +599,16 @@ function UploadableImage({
   children, style, className, display, width, height, shrink,
   onReplace, onDelete, storageKey, onMove, imageIndex, imageTotal, uploadUrl, hasImage = true,
   imageText, imageTextHtml, imagePosition, onSaveText, onDeleteText,
+  imageService, imagePlace,
+  moveActive, onMoveStart, onMoveEnd, onAnimateMove,
+  isTestimonial: isTestimonialProp,
+  quoteText,
+  quoteAuthor,
+  onSaveQuote,
+  testimonialData, onSaveTestimonial,
 }) {
   const useDb = typeof onSaveText === 'function';
+  const isTestimonial = !!isTestimonialProp || !!testimonialData;
   const fileRef = useRef(null);
   const menuRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -582,14 +623,51 @@ function UploadableImage({
   const [italic, setItalic] = useState(false);
   const [underline, setUnderline] = useState(false);
   const [errors, setErrors] = useState({});
+  const [editService, setEditService] = useState('');
+  const [editPlace, setEditPlace] = useState('');
+  const [editQuote, setEditQuote] = useState('');
+  const [editAuthor, setEditAuthor] = useState('');
   const [deleteTextOpen, setDeleteTextOpen] = useState(false);
-  const [moveMode, setMoveMode] = useState(false);
+  const [moveModeLocal, setMoveModeLocal] = useState(false);
+  const externalMove = typeof moveActive === 'boolean';
+  const moveMode = externalMove ? moveActive : moveModeLocal;
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadDesc, setUploadDesc] = useState('');
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState(null);
   const [uploadInfo, setUploadInfo] = useState('');
+  const [uploadService, setUploadService] = useState('');
+  const [uploadPlace, setUploadPlace] = useState('');
+  const [slideAnim, setSlideAnim] = useState(null);
+  const wrapperRef = useRef(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef(null);
+
+  const handleDragStart = (e) => {
+    e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    dragStartRef.current = { x: clientX - dragOffset.x, y: clientY - dragOffset.y };
+    setIsDragging(true);
+    const handleDragMove = (ev) => {
+      const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      setDragOffset({ x: cx - dragStartRef.current.x, y: cy - dragStartRef.current.y });
+    };
+    const handleDragEnd = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', handleDragMove);
+      document.removeEventListener('mouseup', handleDragEnd);
+      document.removeEventListener('touchmove', handleDragMove);
+      document.removeEventListener('touchend', handleDragEnd);
+    };
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('mouseup', handleDragEnd);
+    document.addEventListener('touchmove', handleDragMove, { passive: false });
+    document.addEventListener('touchend', handleDragEnd);
+  };
 
   const canMove = typeof onMove === 'function' && typeof imageTotal === 'number' && imageTotal > 1;
   const isFirst = imageIndex === 0;
@@ -617,7 +695,7 @@ function UploadableImage({
       const posLabel = gridToLabel[item.pos] || item.pos;
       const plainText = item.text;
       const html = buildStyledHtml(item.text, item);
-      await onSaveText(plainText, html, posLabel);
+      await onSaveText(plainText, html, posLabel, item.service, item.place);
     } else {
       setLsOverlay(item);
       if (overlayKey) localStorage.setItem(overlayKey, JSON.stringify(item));
@@ -642,6 +720,30 @@ function UploadableImage({
     return () => document.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (menuOpen || editOpen || deleteTextOpen || uploadModalOpen) {
+      const prevBody = document.body.style.overflow;
+      const prevHtml = document.documentElement.style.overflow;
+      const prevPos = document.body.style.position;
+      const prevTop = document.body.style.top;
+      const prevWidth = document.body.style.width;
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      return () => {
+        document.body.style.position = prevPos;
+        document.body.style.top = prevTop;
+        document.body.style.width = prevWidth;
+        document.body.style.overflow = prevBody;
+        document.documentElement.style.overflow = prevHtml;
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [menuOpen, editOpen, deleteTextOpen, uploadModalOpen]);
+
   const toggleMenu = (e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(p => !p); };
 
   const handleReplaceClick = (e) => { e.stopPropagation(); setMenuOpen(false); fileRef.current.click(); };
@@ -649,6 +751,19 @@ function UploadableImage({
   const handleTextClick = (e) => {
     e.stopPropagation();
     setMenuOpen(false);
+    setDragOffset({ x: 0, y: 0 });
+    if (isTestimonial) {
+      const td = testimonialData || {};
+      const rawQ = quoteText !== undefined && quoteText !== null ? quoteText : td.quote_text;
+      const rawA = quoteAuthor !== undefined && quoteAuthor !== null ? quoteAuthor : td.quote_author;
+      setEditQuote((rawQ || '').replace(/^\u201c/, '').replace(/\u201d$/, ''));
+      setEditAuthor((rawA || '').replace(/^-/, ''));
+      setEditService(td.quote_service || imageService || '');
+      setEditPlace(td.quote_location || imagePlace || '');
+      setErrors({});
+      setEditOpen(true);
+      return;
+    }
     if (overlay) {
       const htmlSrc = overlay.html || null;
       if (htmlSrc) {
@@ -681,6 +796,8 @@ function UploadableImage({
       setItalic(false);
       setUnderline(false);
     }
+    setEditService(imageService || '');
+    setEditPlace(imagePlace || '');
     setErrors({});
     setEditOpen(true);
   };
@@ -699,7 +816,8 @@ function UploadableImage({
   const handleMoveClick = (e) => {
     e.stopPropagation();
     setMenuOpen(false);
-    setMoveMode(true);
+    if (externalMove && onMoveStart) onMoveStart();
+    else setMoveModeLocal(true);
   };
 
   const handleDeleteClick = async (e) => {
@@ -710,13 +828,29 @@ function UploadableImage({
   };
 
   const handleApply = async () => {
+    if (isTestimonial) {
+      const errs = {};
+      if (!editQuote.trim()) errs.quote = 'Please enter a testimonial';
+      if (!editAuthor.trim()) errs.name = 'Please enter a name';
+      if (Object.keys(errs).length) { setErrors(errs); return; }
+      setErrors({});
+      if (onSaveQuote) {
+        onSaveQuote(editQuote.trim(), editAuthor.trim(), editService.trim(), editPlace.trim());
+      } else if (onSaveTestimonial) {
+        onSaveTestimonial(editQuote.trim(), editAuthor.trim(), editService.trim(), editPlace.trim());
+      }
+      setEditOpen(false);
+      return;
+    }
     const errs = {};
-    if (!editText.trim()) errs.text = 'Please enter text';
-    if (!selectedCell) errs.position = 'Please select a position';
+    const hasTextInput = editText.trim().length > 0;
+    const hasServicePlace = editService.trim().length > 0 || editPlace.trim().length > 0;
+    if (!hasTextInput && !hasServicePlace) errs.text = 'Please enter text or service/place';
+    if (hasTextInput && !selectedCell) errs.position = 'Please select a position';
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
     await saveOverlay({
-      pos: selectedCell,
+      pos: selectedCell || '2-1',
       text: editText.trim(),
       fontSize,
       fontFamily,
@@ -724,7 +858,28 @@ function UploadableImage({
       bold,
       italic,
       underline,
+      service: editService.trim(),
+      place: editPlace.trim(),
     });
+    setEditOpen(false);
+  };
+
+  const handleQuoteApply = async () => {
+    const errs = {};
+    if (!editQuote.trim()) errs.quote = 'Please enter a testimonial';
+    if (!editAuthor.trim()) errs.name = 'Please enter a name';
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    setErrors({});
+    if (onSaveQuote) {
+      await onSaveQuote(editQuote.trim(), editAuthor.trim(), editService.trim(), editPlace.trim());
+    } else if (onSaveTestimonial) {
+      await onSaveTestimonial(
+        `\u201c${editQuote.trim()}\u201d`,
+        `-${editAuthor.trim()}`,
+        editService.trim() || null,
+        editPlace.trim() || null,
+      );
+    }
     setEditOpen(false);
   };
 
@@ -739,6 +894,8 @@ function UploadableImage({
     setUploadDesc(analysis.description);
     setUploadPreviewUrl(analysis.previewUrl);
     setUploadInfo(analysis.description);
+    setUploadService('');
+    setUploadPlace('');
     setUploadModalOpen(true);
   };
 
@@ -750,6 +907,8 @@ function UploadableImage({
     formData.append('image', pendingFile);
     formData.append('title', uploadTitle.trim());
     formData.append('description', uploadDesc.trim());
+    formData.append('image_service', uploadService.trim());
+    formData.append('image_place', uploadPlace.trim());
     try {
       const endpoint = uploadUrl || '/api/upload';
       const res = await fetch(endpoint, { method: 'POST', body: formData });
@@ -783,9 +942,21 @@ function UploadableImage({
   };
 
   const pos = overlay ? positionMap[overlay.pos] : null;
+  const livePos = editOpen && selectedCell && !isTestimonial ? positionMap[selectedCell] : null;
 
   return (
-    <Wrapper style={style} className={className} $display={display} $width={width} $height={height} $shrink={shrink}>
+    <Wrapper
+      ref={wrapperRef}
+      style={style}
+      className={className}
+      $display={display}
+      $width={width}
+      $height={height}
+      $shrink={shrink}
+      $animating={!!slideAnim}
+      $slideDir={slideAnim}
+      $slideDistance={wrapperRef.current ? Math.round(wrapperRef.current.offsetWidth * 0.6) : 200}
+    >
       {children}
       {uploading && (
         <LoadingOverlay>
@@ -818,6 +989,25 @@ function UploadableImage({
           )}
         </TextOverlay>
       )}
+      {livePos && editText.trim() && (
+        <TextOverlay style={{ zIndex: 999 }}>
+          <OverlayText
+            style={{
+              top: livePos.top,
+              left: livePos.left,
+              fontFamily,
+              fontSize: `${fontSize}px`,
+              color: fontColor,
+              fontWeight: bold ? '700' : '400',
+              fontStyle: italic ? 'italic' : 'normal',
+              textDecoration: underline ? 'underline' : 'none',
+              opacity: 0.9,
+            }}
+          >
+            {editText}
+          </OverlayText>
+        </TextOverlay>
+      )}
       <KebabBtn onClick={toggleMenu} title="Image options">
         {uploading ? <span style={{ fontSize: 12 }}>…</span> : <><Dot /><Dot /><Dot /></>}
       </KebabBtn>
@@ -830,15 +1020,17 @@ function UploadableImage({
             </MenuItem>
           ) : (
             <>
-              <MenuItem onClick={handleReplaceClick}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Replace Image
-              </MenuItem>
+              {!isTestimonial && (
+                <MenuItem onClick={handleReplaceClick}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Replace Image
+                </MenuItem>
+              )}
               <MenuItem onClick={handleTextClick}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                {hasText ? 'Edit Text' : 'Add Text'}
+                {isTestimonial ? 'Edit Testimonial' : (hasText ? 'Edit Text' : 'Add Text')}
               </MenuItem>
-              {hasText && (
+              {(hasText && !isTestimonial) && (
                 <MenuItem onClick={handleDeleteTextClick} $danger>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/><line x1="1" y1="1" x2="23" y2="23" strokeLinecap="round"/></svg>
                   Delete Text
@@ -858,93 +1050,177 @@ function UploadableImage({
           )}
         </CtxMenu>
       )}
-      {moveMode && canMove && (
+      {moveMode && canMove && !slideAnim && (
         <MovePopup>
           {!isFirst && (
-            <MoveArrow onClick={(e) => { e.stopPropagation(); onMove('left'); }} title="Move Left">
+            <MoveArrow onClick={(e) => {
+              e.stopPropagation();
+              setSlideAnim('left');
+              if (onAnimateMove) onAnimateMove('left');
+              setTimeout(() => { setSlideAnim(null); onMove('left'); }, 530);
+            }} title="Move Left">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             </MoveArrow>
           )}
           {!isLast && (
-            <MoveArrow onClick={(e) => { e.stopPropagation(); onMove('right'); }} title="Move Right">
+            <MoveArrow onClick={(e) => {
+              e.stopPropagation();
+              setSlideAnim('right');
+              if (onAnimateMove) onAnimateMove('right');
+              setTimeout(() => { setSlideAnim(null); onMove('right'); }, 530);
+            }} title="Move Right">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </MoveArrow>
           )}
-          <MoveClose onClick={(e) => { e.stopPropagation(); setMoveMode(false); }} title="Cancel">
+          <MoveClose onClick={(e) => { e.stopPropagation(); if (externalMove && onMoveEnd) onMoveEnd(); else setMoveModeLocal(false); }} title="Cancel">
             &#x2715;
           </MoveClose>
         </MovePopup>
       )}
       <HiddenInput ref={fileRef} type="file" accept="image/*" onChange={handleFile} />
       {editOpen && (
-        <EditModal onClick={() => setEditOpen(false)}>
-          <EditPanel onClick={(e) => e.stopPropagation()}>
-            <EditTitle>{hasText ? 'Edit Text' : 'Add Text to Image'}</EditTitle>
-            <EditInput
-              placeholder="Type your text here..."
-              value={editText}
-              onChange={(e) => { setEditText(e.target.value); if (errors.text) setErrors(p => ({ ...p, text: '' })); }}
-              $error={!!errors.text}
-              autoFocus
-            />
-            {errors.text && <ErrorMsg>{errors.text}</ErrorMsg>}
+        <EditModal $dragging={isDragging} onClick={() => { setEditOpen(false); setDragOffset({ x: 0, y: 0 }); }}>
+          <EditPanel onClick={(e) => e.stopPropagation()} $noDragTransition={isDragging} style={{ transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` }}>
+            {isTestimonial ? (
+              <>
+                <EditTitle>Edit Testimonial</EditTitle>
+                <FieldLabel>Testimonial</FieldLabel>
+                <EditTextarea
+                  placeholder="Write the testimonial here..."
+                  value={editQuote}
+                  onChange={(e) => { setEditQuote(e.target.value); if (errors.quote) setErrors(p => ({ ...p, quote: '' })); }}
+                  style={{ minHeight: 100 }}
+                  autoFocus
+                />
+                {errors.quote && <ErrorMsg>{errors.quote}</ErrorMsg>}
 
-            <div style={{ marginBottom: 10 }} />
-            <ToolbarRow>
-              <ToolbarLabel>Font</ToolbarLabel>
-              <Select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} style={{ flex: 1 }}>
-                {fontFamilies.map(f => (
-                  <option key={f.label} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>
-                ))}
-              </Select>
-            </ToolbarRow>
+                <FieldLabel>Name</FieldLabel>
+                <EditInput
+                  placeholder="e.g. Laura"
+                  value={editAuthor}
+                  onChange={(e) => { setEditAuthor(e.target.value); if (errors.name) setErrors(p => ({ ...p, name: '' })); }}
+                />
+                {errors.name && <ErrorMsg>{errors.name}</ErrorMsg>}
 
-            <ToolbarRow>
-              <ToolbarLabel>Size</ToolbarLabel>
-              <Select value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))}>
-                {fontSizes.map(s => (
-                  <option key={s} value={s}>{s}px</option>
-                ))}
-              </Select>
-              <ToolbarLabel style={{ marginLeft: 8 }}>Color</ToolbarLabel>
-              <ColorInput type="color" value={fontColor} onChange={(e) => setFontColor(e.target.value)} />
-              <StyleBtn $active={bold} $bold onClick={() => setBold(p => !p)} title="Bold">B</StyleBtn>
-              <StyleBtn $active={italic} $italic onClick={() => setItalic(p => !p)} title="Italic">I</StyleBtn>
-              <StyleBtn $active={underline} $underline onClick={() => setUnderline(p => !p)} title="Underline">U</StyleBtn>
-            </ToolbarRow>
+                <div style={{ borderTop: '1px solid #e0e0e0', marginTop: 16, paddingTop: 12 }}>
+                  <FieldLabel>Service <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FieldLabel>
+                  <EditInput
+                    placeholder="e.g. Photography, Disc Jockey..."
+                    value={editService}
+                    onChange={(e) => setEditService(e.target.value)}
+                  />
+                  <FieldLabel>Place <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FieldLabel>
+                  <EditInput
+                    placeholder="e.g. Chicago, IL"
+                    value={editPlace}
+                    onChange={(e) => setEditPlace(e.target.value)}
+                  />
+                </div>
 
-            {editText.trim() && (
-              <Preview>
-                <span style={previewStyle}>{editText}</span>
-              </Preview>
+                <BtnRow>
+                  <ApplyBtn onClick={handleQuoteApply}>Update</ApplyBtn>
+                  <CancelBtn onClick={() => setEditOpen(false)}>Cancel</CancelBtn>
+                </BtnRow>
+              </>
+            ) : (
+              <>
+                <DragHandle onMouseDown={handleDragStart} onTouchStart={handleDragStart}>
+                  <DragGrip />
+                </DragHandle>
+                <EditTitle>{hasText ? 'Edit Text' : 'Add Text to Image'}</EditTitle>
+                <EditInput
+                  placeholder="Type your text here..."
+                  value={editText}
+                  onChange={(e) => { setEditText(e.target.value); if (errors.text) setErrors(p => ({ ...p, text: '' })); }}
+                  $error={!!errors.text}
+                  autoFocus
+                />
+                {errors.text && <ErrorMsg>{errors.text}</ErrorMsg>}
+
+                <div style={{ marginBottom: 10 }} />
+                <ToolbarRow>
+                  <ToolbarLabel>Font</ToolbarLabel>
+                  <Select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} style={{ flex: 1 }}>
+                    {fontFamilies.map(f => (
+                      <option key={f.label} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>
+                    ))}
+                  </Select>
+                </ToolbarRow>
+
+                <ToolbarRow>
+                  <ToolbarLabel>Size</ToolbarLabel>
+                  <Select value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))}>
+                    {fontSizes.map(s => (
+                      <option key={s} value={s}>{s}px</option>
+                    ))}
+                  </Select>
+                  <ToolbarLabel style={{ marginLeft: 8 }}>Color</ToolbarLabel>
+                  <ColorInput type="color" value={fontColor} onChange={(e) => setFontColor(e.target.value)} />
+                  <StyleBtn $active={bold} $bold onClick={() => setBold(p => !p)} title="Bold">B</StyleBtn>
+                  <StyleBtn $active={italic} $italic onClick={() => setItalic(p => !p)} title="Italic">I</StyleBtn>
+                  <StyleBtn $active={underline} $underline onClick={() => setUnderline(p => !p)} title="Underline">U</StyleBtn>
+                </ToolbarRow>
+
+                {editText.trim() && (
+                  <Preview>
+                    <span style={previewStyle}>{editText}</span>
+                  </Preview>
+                )}
+
+                <GridLabel>Click a position — drag the bar above to slide this panel</GridLabel>
+                <Grid $error={!!errors.position}>
+                  {[0, 1, 2].map(row =>
+                    [0, 1, 2].map(col => {
+                      const key = `${row}-${col}`;
+                      return (
+                        <GridCell
+                          key={key}
+                          onClick={() => {
+                            const next = key === selectedCell ? null : key;
+                            setSelectedCell(next);
+                            if (errors.position) setErrors(p => ({ ...p, position: '' }));
+                            if (next && next.endsWith('-1')) {
+                              setDragOffset(prev => ({ ...prev, x: -Math.round(window.innerWidth * 0.28) }));
+                            } else {
+                              setDragOffset({ x: 0, y: 0 });
+                            }
+                          }}
+                          $selected={selectedCell === key}
+                          title={cellLabels[row][col]}
+                        >
+                          {cellLabels[row][col]}
+                        </GridCell>
+                      );
+                    })
+                  )}
+                </Grid>
+                {errors.position && <ErrorMsg>{errors.position}</ErrorMsg>}
+
+                {imageService !== undefined && (
+                  <div style={{ borderTop: '1px solid #e0e0e0', marginTop: 16, paddingTop: 12 }}>
+                    <FieldLabel>Service <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FieldLabel>
+                    <EditInput
+                      placeholder="e.g. Photography, Disc Jockey..."
+                      value={editService}
+                      onChange={(e) => setEditService(e.target.value)}
+                    />
+                    <FieldLabel>Place <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FieldLabel>
+                    <EditInput
+                      placeholder="e.g. Chicago, IL"
+                      value={editPlace}
+                      onChange={(e) => setEditPlace(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                <BtnRow>
+                  <ApplyBtn onClick={handleApply}>
+                    {hasText ? 'Update Text' : 'Apply'}
+                  </ApplyBtn>
+                  <CancelBtn onClick={() => setEditOpen(false)}>Cancel</CancelBtn>
+                </BtnRow>
+              </>
             )}
-
-            <GridLabel>Click a position to place your text</GridLabel>
-            <Grid $error={!!errors.position}>
-              {[0, 1, 2].map(row =>
-                [0, 1, 2].map(col => {
-                  const key = `${row}-${col}`;
-                  return (
-                    <GridCell
-                      key={key}
-                      onClick={() => { setSelectedCell(key === selectedCell ? null : key); if (errors.position) setErrors(p => ({ ...p, position: '' })); }}
-                      $selected={selectedCell === key}
-                      title={cellLabels[row][col]}
-                    >
-                      {cellLabels[row][col]}
-                    </GridCell>
-                  );
-                })
-              )}
-            </Grid>
-            {errors.position && <ErrorMsg>{errors.position}</ErrorMsg>}
-
-            <BtnRow>
-              <ApplyBtn onClick={handleApply}>
-                {hasText ? 'Update Text' : 'Apply Text'}
-              </ApplyBtn>
-              <CancelBtn onClick={() => setEditOpen(false)}>Cancel</CancelBtn>
-            </BtnRow>
           </EditPanel>
         </EditModal>
       )}
@@ -1010,6 +1286,22 @@ function UploadableImage({
               value={uploadDesc}
               onChange={(e) => setUploadDesc(e.target.value)}
             />
+            {!(uploadUrl || '').includes('hero') && (
+              <>
+                <FieldLabel>Service <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FieldLabel>
+                <EditInput
+                  placeholder="e.g. Photography, Disc Jockey..."
+                  value={uploadService}
+                  onChange={(e) => setUploadService(e.target.value)}
+                />
+                <FieldLabel>Place <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FieldLabel>
+                <EditInput
+                  placeholder="e.g. Chicago, IL"
+                  value={uploadPlace}
+                  onChange={(e) => setUploadPlace(e.target.value)}
+                />
+              </>
+            )}
             <div style={{ marginTop: 14 }} />
             <BtnRow>
               <ApplyBtn onClick={handleConfirmUpload}>Upload</ApplyBtn>

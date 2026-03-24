@@ -22,6 +22,13 @@ const Track = styled.div`
 const Slide = styled.div`
   flex: 0 0 auto;
   scroll-snap-align: start;
+  transition: ${({ $animating }) => $animating ? 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s ease' : 'none'};
+  transform: ${({ $displacedDir, $displacedDist }) =>
+    $displacedDir === 'left' ? `translateX(-${$displacedDist}px) scale(0.94)` :
+    $displacedDir === 'right' ? `translateX(${$displacedDist}px) scale(0.94)` :
+    'none'};
+  opacity: ${({ $displacedDir }) => $displacedDir ? 0.7 : 1};
+  z-index: ${({ $displacedDir }) => $displacedDir ? 1 : 'auto'};
 `;
 
 const SlideImage = styled.img`
@@ -153,6 +160,26 @@ const FootLocation = styled.span`
   margin-left: 16px;
   height: 14px;
   line-height: 14px;
+`;
+
+const ImageFoot = styled.div`
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 40px;
+  background-color: #003156;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-transform: uppercase;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.85);
+  z-index: 5;
+  pointer-events: none;
 `;
 
 const Arrow = styled.button`
@@ -473,6 +500,12 @@ function Testimonials() {
   const [addDesc, setAddDesc] = useState('');
   const [addPreviewUrl, setAddPreviewUrl] = useState(null);
   const [addInfo, setAddInfo] = useState('');
+  const [addService, setAddService] = useState('');
+  const [addPlace, setAddPlace] = useState('');
+  const [movingItemId, setMovingItemId] = useState(null);
+  const [displacedIdx, setDisplacedIdx] = useState(null);
+  const [displacedDir, setDisplacedDir] = useState(null);
+  const scrollAfterMoveRef = useRef(null);
 
   const placeholderSrc = `${process.env.PUBLIC_URL}${PLACEHOLDER}`;
 
@@ -489,6 +522,29 @@ function Testimonials() {
   }, []);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
+
+  useEffect(() => {
+    const info = scrollAfterMoveRef.current;
+    if (!info || !trackRef.current) return;
+    scrollAfterMoveRef.current = null;
+
+    const { targetIdx, wasFirst, wasLast, direction } = info;
+
+    if (wasLast && direction === 'left') return;
+
+    if (wasFirst && direction === 'right') {
+      trackRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+      return;
+    }
+
+    const slides = trackRef.current.children;
+    if (targetIdx >= 0 && targetIdx < slides.length) {
+      const slide = slides[targetIdx];
+      const trackWidth = trackRef.current.clientWidth;
+      const centerOffset = slide.offsetLeft - (trackWidth / 2) + (slide.offsetWidth / 2);
+      trackRef.current.scrollTo({ left: Math.max(0, centerOffset), behavior: 'smooth' });
+    }
+  }, [items]);
 
   const handleAddClick = () => setShowAddChoice(true);
 
@@ -515,6 +571,8 @@ function Testimonials() {
     setAddDesc(analysis.description);
     setAddPreviewUrl(analysis.previewUrl);
     setAddInfo(analysis.description);
+    setAddService('');
+    setAddPlace('');
     setShowUploadPreview(true);
   };
 
@@ -526,6 +584,8 @@ function Testimonials() {
     formData.append('image', pendingAddFile);
     formData.append('title', addTitle.trim());
     formData.append('description', addDesc.trim());
+    formData.append('image_service', addService.trim());
+    formData.append('image_place', addPlace.trim());
     try {
       const res = await fetch('/api/carousel/image', { method: 'POST', body: formData });
       const data = await res.json();
@@ -547,6 +607,8 @@ function Testimonials() {
     if (addPreviewUrl) URL.revokeObjectURL(addPreviewUrl);
     setPendingAddFile(null);
     setAddPreviewUrl(null);
+    setAddService('');
+    setAddPlace('');
   };
 
   const handleSaveTestimonial = async () => {
@@ -566,6 +628,8 @@ function Testimonials() {
       formData.append('image', blob, `testimonial-${Date.now()}.png`);
       formData.append('title', `Testimonial - ${tName.trim()}`);
       formData.append('description', tQuote.trim());
+      formData.append('quote_text', quoteText);
+      formData.append('quote_author', authorText);
       const res = await fetch('/api/carousel/testimonial', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.success) {
@@ -593,10 +657,15 @@ function Testimonials() {
   };
 
   const handleMoveSlide = async (idx, direction) => {
+    setDisplacedIdx(null);
+    setDisplacedDir(null);
     const swapIdx = direction === 'left' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= items.length) return;
     const idA = items[idx].id;
     const idB = items[swapIdx].id;
+    const wasFirst = idx === 0;
+    const wasLast = idx === items.length - 1;
+    scrollAfterMoveRef.current = { targetIdx: swapIdx, wasFirst, wasLast, direction };
     try {
       const res = await fetch('/api/carousel/reorder', {
         method: 'PUT',
@@ -607,18 +676,19 @@ function Testimonials() {
       if (data.success) await fetchItems();
     } catch (err) {
       console.error('Reorder failed:', err);
+      scrollAfterMoveRef.current = null;
     }
   };
 
-  const handleSaveText = async (itemId, plainText, htmlText, posLabel) => {
+  const handleSaveText = async (itemId, plainText, htmlText, posLabel, service, place) => {
     try {
       await fetch(`/api/images/${itemId}/text`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_text: plainText, image_text_html: htmlText, text_position: posLabel }),
+        body: JSON.stringify({ image_text: plainText, image_text_html: htmlText, text_position: posLabel, image_service: service || null, image_place: place || null }),
       });
       setItems(prev => prev.map(it =>
-        it.id === itemId ? { ...it, image_text: plainText, image_text_html: htmlText, text_position: posLabel } : it
+        it.id === itemId ? { ...it, image_text: plainText, image_text_html: htmlText, text_position: posLabel, image_service: service || null, image_place: place || null } : it
       ));
     } catch (err) {
       console.error('Text save failed:', err);
@@ -629,10 +699,25 @@ function Testimonials() {
     try {
       await fetch(`/api/images/${itemId}/text`, { method: 'DELETE' });
       setItems(prev => prev.map(it =>
-        it.id === itemId ? { ...it, image_text: null, image_text_html: null, text_position: null } : it
+        it.id === itemId ? { ...it, image_text: null, image_text_html: null, text_position: null, image_service: null, image_place: null } : it
       ));
     } catch (err) {
       console.error('Text delete failed:', err);
+    }
+  };
+
+  const handleSaveQuote = async (itemId, quoteText, quoteAuthor, quoteService, quoteLocation) => {
+    try {
+      await fetch(`/api/images/${itemId}/quote`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quote_text: quoteText, quote_author: quoteAuthor, quote_service: quoteService, quote_location: quoteLocation }),
+      });
+      setItems(prev => prev.map(it =>
+        it.id === itemId ? { ...it, quote_text: quoteText, quote_author: quoteAuthor, quote_service: quoteService, quote_location: quoteLocation } : it
+      ));
+    } catch (err) {
+      console.error('Quote save failed:', err);
     }
   };
 
@@ -677,10 +762,14 @@ function Testimonials() {
       <Track ref={trackRef} onScroll={handleScroll}>
         {items.map((item, idx) => {
           const key = `carousel-${item.id}`;
+          const isDisplaced = displacedIdx === idx;
+          const slideDisplacedDir = isDisplaced ? displacedDir : null;
+          const slideRef = trackRef.current?.children?.[idx];
+          const slideW = slideRef ? Math.round(slideRef.offsetWidth * 0.55) : 200;
 
           if (item.item_type === 'image' && item.file_path) {
             return (
-              <Slide key={key}>
+              <Slide key={key} $animating={isDisplaced} $displacedDir={slideDisplacedDir} $displacedDist={slideW}>
                 <UploadableImage
                   display="block"
                   storageKey={`carousel-${item.id}`}
@@ -690,13 +779,30 @@ function Testimonials() {
                   onMove={totalSlides > 1 ? (dir) => handleMoveSlide(idx, dir) : undefined}
                   imageIndex={idx}
                   imageTotal={totalSlides}
+                  moveActive={movingItemId === item.id}
+                  onMoveStart={() => setMovingItemId(item.id)}
+                  onMoveEnd={() => setMovingItemId(null)}
+                  onAnimateMove={(dir) => {
+                    const swapIdx = dir === 'left' ? idx - 1 : idx + 1;
+                    const oppositeDir = dir === 'left' ? 'right' : 'left';
+                    setDisplacedIdx(swapIdx);
+                    setDisplacedDir(oppositeDir);
+                  }}
                   imageText={item.image_text}
                   imageTextHtml={item.image_text_html}
                   imagePosition={item.text_position}
-                  onSaveText={(plainText, htmlText, posLabel) => handleSaveText(item.id, plainText, htmlText, posLabel)}
+                  imageService={item.image_service}
+                  imagePlace={item.image_place}
+                  onSaveText={(plainText, htmlText, posLabel, service, place) => handleSaveText(item.id, plainText, htmlText, posLabel, service, place)}
                   onDeleteText={() => handleDeleteText(item.id)}
                 >
                   <SlideImage src={item.file_path} alt="Wedding" />
+                  {(item.image_service || item.image_place) && (
+                    <ImageFoot>
+                      {item.image_service && <FootService>{item.image_service}</FootService>}
+                      {item.image_place && <FootLocation>{item.image_place}</FootLocation>}
+                    </ImageFoot>
+                  )}
                 </UploadableImage>
               </Slide>
             );
@@ -704,7 +810,7 @@ function Testimonials() {
 
           if (item.item_type === 'quote') {
             return (
-              <Slide key={key}>
+              <Slide key={key} $animating={isDisplaced} $displacedDir={slideDisplacedDir} $displacedDist={slideW}>
                 <UploadableImage
                   display="block"
                   storageKey={`carousel-${item.id}`}
@@ -712,11 +818,17 @@ function Testimonials() {
                   onDelete={() => handleDeleteItem(item.id)}
                   imageIndex={idx}
                   imageTotal={totalSlides}
-                  imageText={item.image_text}
-                  imageTextHtml={item.image_text_html}
-                  imagePosition={item.text_position}
-                  onSaveText={(plainText, htmlText, posLabel) => handleSaveText(item.id, plainText, htmlText, posLabel)}
-                  onDeleteText={() => handleDeleteText(item.id)}
+                  moveActive={movingItemId === item.id}
+                  onMoveStart={() => setMovingItemId(item.id)}
+                  onMoveEnd={() => setMovingItemId(null)}
+                  onAnimateMove={(dir) => {
+                    const swapIdx = dir === 'left' ? idx - 1 : idx + 1;
+                    const oppositeDir = dir === 'left' ? 'right' : 'left';
+                    setDisplacedIdx(swapIdx);
+                    setDisplacedDir(oppositeDir);
+                  }}
+                  testimonialData={{ quote_text: item.quote_text, quote_author: item.quote_author, quote_service: item.quote_service, quote_location: item.quote_location }}
+                  onSaveTestimonial={(qt, qa, qs, ql) => handleSaveQuote(item.id, qt, qa, qs, ql)}
                 >
                   <QuoteBox>
                     <QuoteText>{item.quote_text}</QuoteText>
@@ -828,6 +940,18 @@ function Testimonials() {
               value={addDesc}
               onChange={(e) => setAddDesc(e.target.value)}
               style={{ minHeight: 60 }}
+            />
+            <FormLabel>Service <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FormLabel>
+            <FormInput
+              placeholder="e.g. Photography, Disc Jockey..."
+              value={addService}
+              onChange={(e) => setAddService(e.target.value)}
+            />
+            <FormLabel>Place <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FormLabel>
+            <FormInput
+              placeholder="e.g. Chicago, IL"
+              value={addPlace}
+              onChange={(e) => setAddPlace(e.target.value)}
             />
             <FormBtnRow>
               <FormPrimary onClick={handleConfirmAddImage}>Upload</FormPrimary>
