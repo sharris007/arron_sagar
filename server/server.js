@@ -78,6 +78,25 @@ function uploadToCloudinary(buffer, folder, originalName, { title, description }
   });
 }
 
+function extractPublicId(url) {
+  if (!url || !url.includes('cloudinary.com')) return null;
+  const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
+  return match ? match[1] : null;
+}
+
+async function archiveInCloudinary(url) {
+  const publicId = extractPublicId(url);
+  if (!publicId) return;
+  const filename = publicId.split('/').pop();
+  const archiveId = `aaron_sager/archive/${filename}`;
+  try {
+    await cloudinary.uploader.rename(publicId, archiveId, { overwrite: true });
+    console.log('Cloudinary archived:', publicId, '->', archiveId);
+  } catch (err) {
+    console.error('Cloudinary archive failed:', err.message);
+  }
+}
+
 // ── Static file serving ──────────────────────────────────
 app.use(express.static(path.join(__dirname, '../client/build')));
 app.use(express.static(path.join(__dirname, '../client/public')));
@@ -139,6 +158,10 @@ app.post('/api/hero/upload', upload.single('image'), async (req, res) => {
     const imageUrl = result.secure_url;
 
     if (pool) {
+      const [existing] = await pool.query("SELECT file_path FROM images WHERE section = 'hero'");
+      for (const row of existing) {
+        await archiveInCloudinary(row.file_path);
+      }
       await pool.query("DELETE FROM images WHERE section = 'hero'");
       const [ins] = await pool.query(
         "INSERT INTO images (position, item_type, section, file_path, is_default, title, description) VALUES (0, 'image', 'hero', ?, FALSE, ?, ?)",
@@ -160,6 +183,10 @@ app.delete('/api/hero', async (req, res) => {
   const pool = getPool();
   if (pool) {
     try {
+      const [rows] = await pool.query("SELECT file_path FROM images WHERE section = 'hero'");
+      for (const row of rows) {
+        await archiveInCloudinary(row.file_path);
+      }
       await pool.query("DELETE FROM images WHERE section = 'hero'");
     } catch (err) {
       console.error('Hero delete failed:', err.message);
