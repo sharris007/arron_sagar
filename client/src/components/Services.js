@@ -75,8 +75,8 @@ const CardsWrap = styled.div`
   @media (max-width: 639px) {
     flex-direction: column;
     align-items: flex-start;
-    padding-left: 15%;
-    gap: 20px;
+    padding-left: 10%;
+    gap: 16px;
   }
 `;
 
@@ -124,6 +124,7 @@ const Card = styled.div`
     background-color: transparent;
     box-shadow: none;
     flex-direction: row;
+    align-items: center;
     width: auto;
     max-width: none;
     padding: 0;
@@ -136,6 +137,13 @@ const IconWrap = styled.div`
   height: 74px;
   margin-bottom: 20px;
   flex-shrink: 0;
+
+  @media (max-width: 639px) {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0;
+    margin-right: 14px;
+  }
 `;
 
 const IconImg = styled.img`
@@ -159,6 +167,12 @@ const ServiceName = styled.span`
   color: #003863;
   display: block;
   margin-bottom: 6px;
+
+  @media (max-width: 639px) {
+    font-size: 16px;
+    line-height: 20px;
+    margin-bottom: 2px;
+  }
 `;
 
 const PriceText = styled.p`
@@ -167,6 +181,11 @@ const PriceText = styled.p`
   line-height: 27px;
   color: #003863;
   text-transform: lowercase;
+
+  @media (max-width: 639px) {
+    font-size: 13px;
+    line-height: 18px;
+  }
 `;
 
 const KebabBtn = styled.button`
