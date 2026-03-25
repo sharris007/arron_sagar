@@ -1,0 +1,16 @@
+{
+  "short_name": "Aaron It Out",
+  "name": "Aaron It Out Photography",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#003863",
+  "icons": [
+    {
+      "src": "/images/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

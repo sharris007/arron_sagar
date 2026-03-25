@@ -9,7 +9,8 @@ const StyledHeader = styled.header`
   z-index: 100;
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
-  height: 72px;
+  height: calc(72px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   overflow: visible;
 `;
 
@@ -111,7 +112,7 @@ const MobileMenu = styled.div`
     display: flex;
     flex-direction: column;
     position: fixed;
-    top: 72px;
+    top: calc(72px + env(safe-area-inset-top, 0px));
     right: 0;
     width: 220px;
     background: #fff;

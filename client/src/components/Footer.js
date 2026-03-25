@@ -8,7 +8,7 @@ const StyledFooter = styled.footer`
   flex-direction: column;
   background: #003156;
   color: #fff;
-  padding: 16px 0 24px;
+  padding: 16px 0 calc(24px + env(safe-area-inset-bottom, 0px));
 `;
 
 const LogoImg = styled.img`
