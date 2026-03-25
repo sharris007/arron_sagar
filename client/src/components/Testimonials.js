@@ -62,6 +62,11 @@ const PlaceholderWrap = styled.div`
     height: 54vw;
     width: 360px;
   }
+  @media (max-width: 639px) {
+    width: 80vw;
+    min-width: 260px;
+    max-width: 360px;
+  }
 `;
 
 const PlaceholderImg = styled.img`
@@ -96,9 +101,14 @@ const QuoteBox = styled.div`
     padding-top: 0;
   }
   @media (max-width: 639px) {
-    width: 320px;
-    padding-left: 5%;
-    padding-right: 5%;
+    width: 80vw;
+    min-width: 260px;
+    max-width: 360px;
+    padding: 0 6%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 0;
   }
 `;
 
@@ -111,6 +121,10 @@ const QuoteText = styled.h2`
   @media (max-width: 959px) {
     font-size: 16px;
     line-height: 21px;
+  }
+  @media (max-width: 639px) {
+    font-size: clamp(12px, 3.5vw, 15px);
+    line-height: 1.4;
   }
 `;
 
@@ -128,7 +142,9 @@ const Author = styled.span`
     font-weight: 500;
   }
   @media (max-width: 639px) {
-    margin-top: 7px;
+    font-size: clamp(12px, 3.5vw, 15px);
+    line-height: 1.3;
+    margin-top: 8px;
   }
 `;
 
@@ -148,6 +164,12 @@ const Foot = styled.div`
   font-size: 12px;
   letter-spacing: 1.5px;
   color: rgba(255, 255, 255, 0.85);
+
+  @media (max-width: 639px) {
+    height: 32px;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
 `;
 
 const FootService = styled.span`
@@ -155,12 +177,28 @@ const FootService = styled.span`
   border-right: 1px solid rgba(217, 224, 230, 0.35);
   height: 14px;
   line-height: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+
+  @media (max-width: 639px) {
+    padding-right: 10px;
+  }
 `;
 
 const FootLocation = styled.span`
   margin-left: 16px;
   height: 14px;
   line-height: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+
+  @media (max-width: 639px) {
+    margin-left: 10px;
+  }
 `;
 
 const ImageFoot = styled.div`
@@ -181,6 +219,12 @@ const ImageFoot = styled.div`
   color: rgba(255, 255, 255, 0.85);
   z-index: 5;
   pointer-events: none;
+
+  @media (max-width: 639px) {
+    height: 32px;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
 `;
 
 const Arrow = styled.button`
@@ -255,6 +299,12 @@ const ModalPanel = styled.div`
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+
+  @media (max-width: 639px) {
+    width: 92vw;
+    max-width: 440px;
+    padding: 20px 16px;
+  }
 `;
 
 const ModalTitle = styled.h3`
