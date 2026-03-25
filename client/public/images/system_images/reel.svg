@@ -1,24 +1,18 @@
 <svg width="73" height="75" viewBox="0 0 73 75" fill="none" xmlns="http://www.w3.org/2000/svg">
 <ellipse cx="39.1382" cy="40.9654" rx="32.9819" ry="33.0357" fill="#E2ECFF"/>
 <path fill-rule="evenodd" clip-rule="evenodd" d="M2.63212 21.3793C7.98306 8.43809 20.5903 0 34.5747 0C53.6586 0.0190366 69.1256 15.5081 69.1484 34.6232C69.1512 48.6303 60.7293 61.2598 47.8102 66.6221C34.8912 71.9843 20.0193 69.0232 10.1298 59.1197C0.240414 49.2161 -2.71883 34.3205 2.63212 21.3793ZM2.03125 34.6226C2.03125 52.6244 16.6009 67.2178 34.5734 67.2178C52.5383 67.1992 67.097 52.6167 67.1156 34.6226C67.1156 16.6207 52.546 2.02734 34.5734 2.02734C16.6009 2.02734 2.03125 16.6207 2.03125 34.6226Z" fill="#153A62"/>
-<!-- Photo card tilted slightly -->
-<g transform="translate(34.5, 36) rotate(-6) translate(-18, -20)">
-  <!-- Card shadow -->
-  <rect x="2" y="2" width="33" height="40" rx="2" fill="#c8d6e5" opacity="0.4"/>
-  <!-- Card -->
-  <rect x="0" y="0" width="33" height="40" rx="2" stroke="#003863" stroke-width="2" fill="#f0f4f8"/>
-  <!-- Inner photo area -->
-  <rect x="4" y="5" width="25" height="24" rx="1" stroke="#003863" stroke-width="1.5" fill="#dce4ee"/>
-  <!-- Head -->
-  <circle cx="16.5" cy="15" r="5" stroke="#003863" stroke-width="1.8" fill="none"/>
-  <!-- Shoulders -->
-  <path d="M8 28C8 23.5 11.5 20.5 16.5 20.5C21.5 20.5 25 23.5 25 28" stroke="#003863" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-  <!-- Name line placeholder -->
-  <rect x="6" y="33" width="14" height="2" rx="1" fill="#003863" opacity="0.5"/>
-  <rect x="6" y="37" width="9" height="1.5" rx="0.75" fill="#003863" opacity="0.3"/>
-</g>
-<!-- Paperclip -->
-<g transform="translate(44, 11) rotate(15)">
-  <path d="M0 0V12C0 14.2 1.8 16 4 16C6.2 16 8 14.2 8 12V3C8 1.8 7.1 1 6 1C4.9 1 4 1.8 4 3V11" stroke="#003863" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+<g transform="translate(34.5, 35) scale(1.7) translate(-34.5, -35)">
+  <g transform="translate(34.5, 36) rotate(-6) translate(-18, -20)">
+    <rect x="2" y="2" width="33" height="40" rx="2" fill="#c8d6e5" opacity="0.4"/>
+    <rect x="0" y="0" width="33" height="40" rx="2" stroke="#003863" stroke-width="1.2" fill="#f0f4f8"/>
+    <rect x="4" y="5" width="25" height="24" rx="1" stroke="#003863" stroke-width="1" fill="#dce4ee"/>
+    <circle cx="16.5" cy="15" r="5" stroke="#003863" stroke-width="1.1" fill="none"/>
+    <path d="M8 28C8 23.5 11.5 20.5 16.5 20.5C21.5 20.5 25 23.5 25 28" stroke="#003863" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <rect x="6" y="33" width="14" height="2" rx="1" fill="#003863" opacity="0.5"/>
+    <rect x="6" y="37" width="9" height="1.5" rx="0.75" fill="#003863" opacity="0.3"/>
+  </g>
+  <g transform="translate(44, 11) rotate(15)">
+    <path d="M0 0V12C0 14.2 1.8 16 4 16C6.2 16 8 14.2 8 12V3C8 1.8 7.1 1 6 1C4.9 1 4 1.8 4 3V11" stroke="#003863" stroke-width="1" fill="none" stroke-linecap="round"/>
+  </g>
 </g>
 </svg>

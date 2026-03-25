@@ -463,14 +463,31 @@ const HiddenInput = styled.input`
 const LoadingOverlay = styled.div`
   position: absolute;
   inset: 0;
-  background: rgba(255,255,255,0.85);
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   z-index: 30;
+`;
+
+const Spinner = styled.div`
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: svc-spin 0.8s linear infinite;
+  @keyframes svc-spin { to { transform: rotate(360deg); } }
+`;
+
+const LoadingLabel = styled.span`
   font-family: 'Inter', sans-serif;
   font-size: 14px;
-  color: #003863;
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: 0.3px;
 `;
 
 function Services() {
@@ -479,7 +496,7 @@ function Services() {
   const [bgImage, setBgImage] = useState(null);
 
   const [services, setServices] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState(null);
   const [openMenu, setOpenMenu] = useState(null);
   const [sectionMenu, setSectionMenu] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -579,14 +596,14 @@ function Services() {
 
   const handleDeleteService = async (svc) => {
     setOpenMenu(null);
-    setLoading(true);
+    setLoadingMsg('Deleting service tile…');
     try {
       await fetch(`/api/services/${svc.id}`, { method: 'DELETE' });
       await fetchServices();
     } catch (err) {
       console.error('Delete failed:', err);
     }
-    setLoading(false);
+    setLoadingMsg(null);
   };
 
   const handleChangeImageClick = (svc) => {
@@ -599,7 +616,7 @@ function Services() {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = '';
-    setLoading(true);
+    setLoadingMsg('Updating icon…');
     const formData = new FormData();
     formData.append('icon', file);
     try {
@@ -608,7 +625,7 @@ function Services() {
     } catch (err) {
       console.error('Icon change failed:', err);
     }
-    setLoading(false);
+    setLoadingMsg(null);
   };
 
   const handleMoveCard = async (svc, dir) => {
@@ -637,7 +654,7 @@ function Services() {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = '';
-    setLoading(true);
+    setLoadingMsg('Uploading background…');
     const formData = new FormData();
     formData.append('image', file);
     try {
@@ -647,19 +664,19 @@ function Services() {
     } catch (err) {
       console.error('Background upload failed:', err);
     }
-    setLoading(false);
+    setLoadingMsg(null);
   };
 
   const handleBgDelete = async () => {
     setSectionMenu(false);
-    setLoading(true);
+    setLoadingMsg('Deleting background…');
     try {
       await fetch('/api/services/background', { method: 'DELETE' });
       setBgImage(null);
     } catch (err) {
       console.error('Background delete failed:', err);
     }
-    setLoading(false);
+    setLoadingMsg(null);
   };
 
   const handleAddClick = () => {
@@ -703,7 +720,12 @@ function Services() {
   return (
     <>
       <Section style={sectionStyle}>
-        {loading && <LoadingOverlay>Loading...</LoadingOverlay>}
+        {loadingMsg && (
+          <LoadingOverlay>
+            <Spinner />
+            <LoadingLabel>{loadingMsg}</LoadingLabel>
+          </LoadingOverlay>
+        )}
 
         {adminMode && (
           <SectionKebabBtn onClick={(e) => { e.stopPropagation(); setSectionMenu(!sectionMenu); }}>
