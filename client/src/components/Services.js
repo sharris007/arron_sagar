@@ -1,19 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled, { keyframes, css } from 'styled-components';
+import { useAdmin } from '../AdminContext';
 
 const Section = styled.section`
   position: relative;
   background-color: #f9f9f9;
   background-repeat: no-repeat;
   background-position: center;
-  background-size: auto;
+  background-size: cover;
   padding: 80px 0;
 
   @media (max-width: 639px) {
     padding: 50px 0;
-    background-size: 40% !important;
-    background-position: right bottom !important;
-    background-repeat: no-repeat !important;
   }
 `;
 
@@ -110,6 +108,7 @@ const Card = styled.div`
   flex-direction: column;
   align-items: center;
   text-align: center;
+  z-index: ${({ $menuOpen }) => $menuOpen ? 20 : 'auto'};
 
   ${({ $visible, $delay }) => $visible
     ? css`animation: ${flipIn} 0.7s cubic-bezier(0.23, 1, 0.32, 1) ${$delay}s both;`
@@ -208,12 +207,23 @@ const CtxMenu = styled.div`
   position: absolute;
   top: 40px;
   right: 8px;
-  z-index: 15;
+  z-index: 100;
   background: #fff;
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   min-width: 170px;
   overflow: hidden;
+
+  @media (max-width: 639px) {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -50%);
+    min-width: 220px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    z-index: 9999;
+  }
 `;
 
 const MenuItem = styled.button`
@@ -284,12 +294,23 @@ const SectionCtxMenu = styled.div`
   position: absolute;
   top: 48px;
   right: 12px;
-  z-index: 16;
+  z-index: 100;
   background: #fff;
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   min-width: 200px;
   overflow: hidden;
+
+  @media (max-width: 639px) {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -50%);
+    min-width: 220px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    z-index: 9999;
+  }
 `;
 
 const ModalBackdrop = styled.div`
@@ -429,6 +450,7 @@ const LoadingOverlay = styled.div`
 `;
 
 function Services() {
+  const adminMode = useAdmin();
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 639);
   const [bgImage, setBgImage] = useState(null);
 
@@ -659,10 +681,12 @@ function Services() {
       <Section style={sectionStyle}>
         {loading && <LoadingOverlay>Loading...</LoadingOverlay>}
 
-        <SectionKebabBtn onClick={(e) => { e.stopPropagation(); setSectionMenu(!sectionMenu); }}>
-          <Dot /><Dot /><Dot />
-        </SectionKebabBtn>
-        {sectionMenu && (
+        {adminMode && (
+          <SectionKebabBtn onClick={(e) => { e.stopPropagation(); setSectionMenu(!sectionMenu); }}>
+            <Dot /><Dot /><Dot />
+          </SectionKebabBtn>
+        )}
+        {adminMode && sectionMenu && (
           <SectionCtxMenu ref={sectionMenuRef} onClick={(e) => e.stopPropagation()}>
             <MenuItem onClick={handleBgUploadClick}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -685,11 +709,13 @@ function Services() {
           </Intro>
           <CardsWrap ref={cardsRef}>
             {services.map((svc, idx) => (
-              <Card key={`${svc.id}-${animKey}`} $visible={cardsVisible} $delay={idx * 0.15}>
-                <KebabBtn onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === svc.id ? null : svc.id); }}>
-                  <Dot /><Dot /><Dot />
-                </KebabBtn>
-                {openMenu === svc.id && (
+              <Card key={`${svc.id}-${animKey}`} $visible={cardsVisible} $delay={idx * 0.15} $menuOpen={openMenu === svc.id}>
+                {adminMode && (
+                  <KebabBtn onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === svc.id ? null : svc.id); }}>
+                    <Dot /><Dot /><Dot />
+                  </KebabBtn>
+                )}
+                {adminMode && openMenu === svc.id && (
                   <CtxMenu ref={menuRef} onClick={(e) => e.stopPropagation()}>
                     <MenuItem onClick={() => handleEditOpen(svc)}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -701,14 +727,20 @@ function Services() {
                     </MenuItem>
                     {idx > 0 && (
                       <MenuItem onClick={() => handleMoveCard(svc, 'left')}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
-                        Move Left
+                        {isMobile
+                          ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>
+                          : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                        }
+                        {isMobile ? 'Move Up' : 'Move Left'}
                       </MenuItem>
                     )}
                     {idx < services.length - 1 && (
                       <MenuItem onClick={() => handleMoveCard(svc, 'right')}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-                        Move Right
+                        {isMobile
+                          ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                          : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        }
+                        {isMobile ? 'Move Down' : 'Move Right'}
                       </MenuItem>
                     )}
                     <MenuItem $danger onClick={() => handleDeleteService(svc)}>
@@ -731,7 +763,7 @@ function Services() {
             ))}
           </CardsWrap>
         </Center>
-        <AddServiceBtn onClick={handleAddClick} title="Add Service">+</AddServiceBtn>
+        {adminMode && <AddServiceBtn onClick={handleAddClick} title="Add Service">+</AddServiceBtn>}
         <HiddenInput ref={changeFileRef} type="file" accept="image/*" onChange={handleChangeImageFile} />
       </Section>
 

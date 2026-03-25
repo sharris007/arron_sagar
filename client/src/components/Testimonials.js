@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import styled from 'styled-components';
+import { useAdmin } from '../AdminContext';
 import UploadableImage from './UploadableImage';
 
 const Section = styled.section`
@@ -482,6 +483,7 @@ function generateTestimonialImage(quote, authorName) {
 }
 
 function Testimonials() {
+  const adminMode = useAdmin();
   const trackRef = useRef(null);
   const addFileRef = useRef(null);
   const [scrollPos, setScrollPos] = useState(0);
@@ -504,6 +506,7 @@ function Testimonials() {
   const [displacedIdx, setDisplacedIdx] = useState(null);
   const [displacedDir, setDisplacedDir] = useState(null);
   const scrollAfterMoveRef = useRef(null);
+  const scrollToStartRef = useRef(false);
 
   const placeholderSrc = `${process.env.PUBLIC_URL}${PLACEHOLDER}`;
 
@@ -520,6 +523,14 @@ function Testimonials() {
   }, []);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
+
+  useEffect(() => {
+    if (scrollToStartRef.current && trackRef.current) {
+      scrollToStartRef.current = false;
+      trackRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+      setScrollPos(0);
+    }
+  }, [items]);
 
   useEffect(() => {
     const info = scrollAfterMoveRef.current;
@@ -584,8 +595,8 @@ function Testimonials() {
       const res = await fetch('/api/carousel/image', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.success) {
+        scrollToStartRef.current = true;
         await fetchItems();
-        if (trackRef.current) trackRef.current.scrollTo({ left: 0, behavior: 'smooth' });
       }
     } catch (err) {
       console.error('Upload failed:', err);
@@ -625,8 +636,8 @@ function Testimonials() {
       const res = await fetch('/api/carousel/testimonial', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.success) {
+        scrollToStartRef.current = true;
         await fetchItems();
-        if (trackRef.current) trackRef.current.scrollTo({ left: 0, behavior: 'smooth' });
       }
     } catch (err) {
       console.error('Testimonial save failed:', err);
@@ -846,7 +857,7 @@ function Testimonials() {
         </RightArrow>
       )}
 
-      <AddBtn onClick={handleAddClick} title="Add image or testimonial">+</AddBtn>
+      {adminMode && <AddBtn onClick={handleAddClick} title="Add image or testimonial">+</AddBtn>}
       <HiddenFileInput ref={addFileRef} type="file" accept="image/*" onChange={handleAddImageFile} />
 
       {showAddChoice && (

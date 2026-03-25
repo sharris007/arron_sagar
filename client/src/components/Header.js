@@ -101,6 +101,52 @@ const SignInBtn = styled.button`
   }
 `;
 
+const AdminToggleWrap = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 18px;
+`;
+
+const AdminLabel = styled.span`
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: ${({ $active }) => $active ? '#c62828' : '#999'};
+  transition: color 0.2s;
+
+  @media (max-width: 639px) {
+    font-size: 10px;
+  }
+`;
+
+const ToggleTrack = styled.button`
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  background: ${({ $on }) => $on ? '#c62828' : '#d6d6d6'};
+  transition: background 0.2s;
+  padding: 0;
+  flex-shrink: 0;
+`;
+
+const ToggleThumb = styled.span`
+  position: absolute;
+  top: 2px;
+  left: ${({ $on }) => $on ? '18px' : '2px'};
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  transition: left 0.2s;
+`;
+
 const fadeIn = keyframes`
   from { opacity: 0; }
   to { opacity: 1; }
@@ -245,7 +291,7 @@ const ModalOuter = styled.div`
   position: relative;
 `;
 
-function Header({ onLoginClick }) {
+function Header({ onLoginClick, isAdmin, onAdminToggle }) {
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
@@ -265,6 +311,12 @@ function Header({ onLoginClick }) {
             <LogoImg src={`${process.env.PUBLIC_URL}/images/system_images/aaron_it_out_logo.png`} alt="Aaron It Out Photography" />
           </LogoLink>
           <Nav>
+            <AdminToggleWrap>
+              <AdminLabel $active={isAdmin}>Admin</AdminLabel>
+              <ToggleTrack $on={isAdmin} onClick={onAdminToggle} aria-label="Toggle admin mode">
+                <ToggleThumb $on={isAdmin} />
+              </ToggleTrack>
+            </AdminToggleWrap>
             <GetStartedBtn href="#FindLocalPros">Get Started</GetStartedBtn>
             <Divider />
             <SignInBtn onClick={onLoginClick}>Sign In</SignInBtn>

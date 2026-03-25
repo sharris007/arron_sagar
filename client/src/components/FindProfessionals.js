@@ -195,7 +195,7 @@ const SuccessMessage = styled.div`
 
 function FindProfessionals() {
   const [formData, setFormData] = useState({
-    name: '', email: '', phone: '', weddingDate: '', weddingLocation: '', okToText: true
+    name: '', email: '', phone: '', eventDate: '', eventLocation: '', okToText: true
   });
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
@@ -214,7 +214,7 @@ function FindProfessionals() {
     if (!formData.name.trim()) errs.name = true;
     if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errs.email = true;
     if (!formData.phone.trim()) errs.phone = true;
-    if (!formData.weddingLocation.trim()) errs.weddingLocation = true;
+    if (!formData.eventLocation.trim()) errs.eventLocation = true;
     return errs;
   };
 
@@ -223,7 +223,7 @@ function FindProfessionals() {
     const v = validate();
     if (Object.keys(v).length) { setErrors(v); return; }
     try {
-      const res = await fetch('/api/find-professionals', {
+      const res = await fetch('/api/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -252,7 +252,7 @@ function FindProfessionals() {
         </UploadableImage>
       </ImageWrap>
       <Content>
-        <Title>Find Professionals</Title>
+        <Title>Get a Quote</Title>
         {submitted ? (
           <SuccessMessage><p>{successMessage}</p></SuccessMessage>
         ) : (
@@ -273,26 +273,26 @@ function FindProfessionals() {
                 <Input id="phone" name="phone" type="tel" placeholder="999-999-9999" value={formData.phone} onChange={handleChange} $invalid={errors.phone} />
               </Field>
               <Field>
-                <Label htmlFor="weddingDate">Wedding Date</Label>
-                <Input id="weddingDate" name="weddingDate" placeholder="MM/DD/YYYY" value={formData.weddingDate} onChange={handleChange} />
+                <Label htmlFor="eventDate">Event Date</Label>
+                <Input id="eventDate" name="eventDate" placeholder="MM/DD/YYYY" value={formData.eventDate} onChange={handleChange} />
               </Field>
               <Field>
-                <Label htmlFor="weddingLocation">Wedding Location</Label>
-                <Input id="weddingLocation" name="weddingLocation" placeholder="City, State Zip" value={formData.weddingLocation} onChange={handleChange} $invalid={errors.weddingLocation} $width="180px" />
+                <Label htmlFor="eventLocation">Event Location</Label>
+                <Input id="eventLocation" name="eventLocation" placeholder="City, State Zip" value={formData.eventLocation} onChange={handleChange} $invalid={errors.eventLocation} $width="180px" />
               </Field>
             </FormRow>
             <SubmitArea>
-              <SubmitBtn type="submit">Find Professionals Near Me</SubmitBtn>
+              <SubmitBtn type="submit">Send Me A Quote</SubmitBtn>
               <CheckboxLabel>
                 <input type="checkbox" name="okToText" checked={formData.okToText} onChange={handleChange} />
                 <span>OK to Text?</span>
               </CheckboxLabel>
               <SmallNote>
-                Opt-in to receive text messages about services and offers for your wedding.
+                Opt-in to receive text messages about services and offers for your event.
                 Text and data rates may apply. Reply STOP at anytime to opt-out.
               </SmallNote>
               <SmallNote>
-                By signing up, I expressly agree to The Pros Weddings Privacy Policy. View our complete{' '}
+                By signing up, I expressly agree to Aaron It Out Photography's Privacy Policy. View our complete{' '}
                 <a href="/privacy-policy" target="_blank" rel="noopener noreferrer">privacy policy</a>.
               </SmallNote>
               {errors.form && <ErrorText>{errors.form}</ErrorText>}

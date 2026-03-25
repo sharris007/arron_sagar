@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import styled from 'styled-components';
+import { useAdmin } from '../AdminContext';
 
 const fontFamilies = [
   { label: 'Bernaillo', value: "'Bernaillo', cursive" },
@@ -607,6 +608,7 @@ function UploadableImage({
   onSaveQuote,
   testimonialData, onSaveTestimonial,
 }) {
+  const adminMode = useAdmin();
   const useDb = typeof onSaveText === 'function';
   const isTestimonial = !!isTestimonialProp || !!testimonialData;
   const fileRef = useRef(null);
@@ -1027,10 +1029,12 @@ function UploadableImage({
           </OverlayText>
         </TextOverlay>
       )}
-      <KebabBtn onClick={toggleMenu} title="Image options">
-        {uploading ? <span style={{ fontSize: 12 }}>…</span> : <><Dot /><Dot /><Dot /></>}
-      </KebabBtn>
-      {menuOpen && (
+      {adminMode && (
+        <KebabBtn onClick={toggleMenu} title="Image options">
+          {uploading ? <span style={{ fontSize: 12 }}>…</span> : <><Dot /><Dot /><Dot /></>}
+        </KebabBtn>
+      )}
+      {adminMode && menuOpen && (
         <CtxMenu ref={menuRef}>
           {!hasImage ? (
             <MenuItem onClick={handleReplaceClick}>

@@ -77,6 +77,19 @@ async function initDatabase() {
       )
     `);
 
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS quotes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        phone VARCHAR(50) NOT NULL,
+        event_date VARCHAR(20),
+        event_location VARCHAR(255),
+        ok_to_text BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Migrate: rename carousel_items → images if the old table still exists
     const [tables] = await connection.query(
       "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'carousel_items'",

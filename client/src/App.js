@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createGlobalStyle } from 'styled-components';
+import AdminContext from './AdminContext';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import Services from './components/Services';
@@ -37,10 +38,11 @@ const GlobalStyle = createGlobalStyle`
 
 function App() {
   const [showLogin, setShowLogin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   return (
-    <>
+    <AdminContext.Provider value={isAdmin}>
       <GlobalStyle />
-      <Header onLoginClick={() => setShowLogin(true)} />
+      <Header onLoginClick={() => setShowLogin(true)} isAdmin={isAdmin} onAdminToggle={() => setIsAdmin(a => !a)} />
       <Hero />
       <Services />
       <Testimonials />
@@ -49,7 +51,7 @@ function App() {
       <Footer />
       <ChatBubble />
       {showLogin && <LoginPage onClose={() => setShowLogin(false)} />}
-    </>
+    </AdminContext.Provider>
   );
 }
 

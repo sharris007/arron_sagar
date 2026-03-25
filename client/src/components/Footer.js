@@ -8,17 +8,36 @@ const StyledFooter = styled.footer`
   flex-direction: column;
   background: #003156;
   color: #fff;
-  padding: 30px 0 40px;
+  padding: 16px 0 24px;
 `;
 
 const LogoImg = styled.img`
-  width: 280px;
+  width: 100%;
+  max-width: 288px;
   height: auto;
   display: block;
   object-fit: contain;
 
   @media (max-width: 639px) {
-    width: 220px;
+    max-width: 192px;
+  }
+`;
+
+const PhoneNumber = styled.a`
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  margin-top: 18px;
+  transition: color 0.2s;
+  &:hover { color: #fff; }
+
+  @media (max-width: 639px) {
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    margin-top: 14px;
   }
 `;
 
@@ -37,6 +56,7 @@ function Footer() {
   return (
     <StyledFooter>
       <LogoImg src={footerLogo || fallback} alt="Aaron It Out Photography" />
+      <PhoneNumber href="tel:3038705386">(303) 870-5386</PhoneNumber>
     </StyledFooter>
   );
 }

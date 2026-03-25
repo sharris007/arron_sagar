@@ -464,6 +464,39 @@ app.post('/api/find-professionals', async (req, res) => {
   });
 });
 
+// ── Quote API ─────────────────────────────────────────────
+
+app.post('/api/quote', async (req, res) => {
+  const { name, email, phone, eventDate, eventLocation, okToText } = req.body;
+
+  const pool = getPool();
+  if (pool) {
+    try {
+      await pool.execute(
+        'INSERT INTO quotes (name, email, phone, event_date, event_location, ok_to_text) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          (name || '').trim(),
+          (email || '').trim(),
+          (phone || '').trim(),
+          eventDate || null,
+          (eventLocation || '').trim(),
+          okToText ? 1 : 0
+        ]
+      );
+      console.log('Quote saved to database:', { name, email, phone, eventDate, eventLocation, okToText });
+    } catch (err) {
+      console.log('Quote insert failed:', err.message);
+    }
+  } else {
+    console.log('No database — logging quote:', { name, email, phone, eventDate, eventLocation, okToText });
+  }
+
+  res.json({
+    success: true,
+    message: 'Thank you! We will send you a quote shortly.'
+  });
+});
+
 // ── Stencil pipeline ─────────────────────────────────────
 
 const BADGE_TEMPLATE = path.join(__dirname, 'assets/badge_template.png');
