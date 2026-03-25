@@ -263,27 +263,27 @@ const EditInput = styled.input`
 
 const ToolbarRow = styled.div`
   display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 4px;
+  margin-bottom: 6px;
   flex-wrap: wrap;
   align-items: center;
 `;
 
 const ToolbarLabel = styled.span`
   font-family: 'Inter', sans-serif;
-  font-size: 11px;
+  font-size: 8px;
   color: #999;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  min-width: 40px;
+  letter-spacing: 0.4px;
+  min-width: 28px;
 `;
 
 const Select = styled.select`
-  padding: 6px 8px;
+  padding: 4px 6px;
   border: 1px solid #d6d6d6;
-  border-radius: 4px;
+  border-radius: 3px;
   font-family: 'Inter', sans-serif;
-  font-size: 13px;
+  font-size: 10px;
   color: #003863;
   background: #fff;
   outline: none;
@@ -294,23 +294,23 @@ const Select = styled.select`
 `;
 
 const ColorInput = styled.input`
-  width: 36px;
-  height: 30px;
+  width: 27px;
+  height: 22px;
   border: 1px solid #d6d6d6;
-  border-radius: 4px;
-  padding: 2px;
+  border-radius: 3px;
+  padding: 1px;
   cursor: pointer;
   background: #fff;
 `;
 
 const StyleBtn = styled.button`
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   border: 1px solid ${({ $active }) => $active ? '#003863' : '#d6d6d6'};
-  border-radius: 4px;
+  border-radius: 3px;
   background: ${({ $active }) => $active ? '#003863' : '#fff'};
   color: ${({ $active }) => $active ? '#fff' : '#003863'};
-  font-size: 14px;
+  font-size: 10px;
   font-weight: ${({ $bold }) => $bold ? '700' : '400'};
   font-style: ${({ $italic }) => $italic ? 'italic' : 'normal'};
   text-decoration: ${({ $underline }) => $underline ? 'underline' : 'none'};
@@ -326,11 +326,11 @@ const StyleBtn = styled.button`
 `;
 
 const Preview = styled.div`
-  padding: 8px;
+  padding: 6px;
   border: 1px solid #e0e0e0;
-  border-radius: 5px;
-  margin-bottom: 8px;
-  min-height: 32px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  min-height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -999,7 +999,7 @@ function UploadableImage({
 
   const previewStyle = {
     fontFamily,
-    fontSize: `${Math.min(fontSize, 28)}px`,
+    fontSize: `${Math.min(fontSize, 20)}px`,
     color: fontColor,
     fontWeight: bold ? '700' : '400',
     fontStyle: italic ? 'italic' : 'normal',
@@ -1203,11 +1203,10 @@ function UploadableImage({
                   value={editText}
                   onChange={(e) => { setEditText(e.target.value); if (errors.text) setErrors(p => ({ ...p, text: '' })); }}
                   $error={!!errors.text}
-                  autoFocus
                 />
                 {errors.text && <ErrorMsg>{errors.text}</ErrorMsg>}
 
-                <div style={{ marginBottom: 10 }} />
+                <div style={{ marginBottom: 4 }} />
                 <ToolbarRow>
                   <ToolbarLabel>Font</ToolbarLabel>
                   <Select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} style={{ flex: 1 }}>
@@ -1224,7 +1223,7 @@ function UploadableImage({
                       <option key={s} value={s}>{s}px</option>
                     ))}
                   </Select>
-                  <ToolbarLabel style={{ marginLeft: 8 }}>Color</ToolbarLabel>
+                  <ToolbarLabel style={{ marginLeft: 4 }}>Color</ToolbarLabel>
                   <ColorInput type="color" value={fontColor} onChange={(e) => setFontColor(e.target.value)} />
                   <StyleBtn $active={bold} $bold onClick={() => setBold(p => !p)} title="Bold">B</StyleBtn>
                   <StyleBtn $active={italic} $italic onClick={() => setItalic(p => !p)} title="Italic">I</StyleBtn>
