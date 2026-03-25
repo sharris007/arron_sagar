@@ -184,30 +184,38 @@ const EditModal = styled.div`
   right: 0;
   bottom: 0;
   z-index: 1000;
-  background: ${({ $dragging }) => $dragging ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.6)'};
+  background: ${({ $dragging }) => $dragging ? 'rgba(0, 0, 0, 0.05)' : 'rgba(0, 0, 0, 0.3)'};
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 16px;
   transition: background 0.25s ease;
+
+  @media (max-width: 639px) {
+    align-items: flex-end;
+    justify-content: center;
+    padding: 8px;
+  }
 `;
 
 const EditPanel = styled.div`
-  background: #fff;
-  border-radius: 12px;
-  padding: 30px;
-  padding-top: 10px;
-  width: 420px;
-  max-height: 90vh;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  padding: 16px 18px;
+  padding-top: 6px;
+  width: 320px;
+  max-height: 70vh;
   overflow-y: auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
   cursor: default;
   transition: ${({ $noDragTransition }) => $noDragTransition ? 'none' : 'transform 0.3s ease'};
 
   @media (max-width: 639px) {
-    width: 92vw;
-    max-width: 420px;
-    padding: 20px 16px;
-    padding-top: 8px;
+    width: 88vw;
+    max-width: 320px;
+    padding: 12px 14px;
+    padding-top: 4px;
+    max-height: 60vh;
   }
 `;
 
@@ -232,22 +240,22 @@ const DragGrip = styled.div`
 
 const EditTitle = styled.h3`
   font-family: 'Inter', sans-serif;
-  font-size: 18px;
+  font-size: 15px;
   color: #003863;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   text-align: center;
 `;
 
 const EditInput = styled.input`
   width: 100%;
-  padding: 10px 14px;
-  border: 2px solid ${({ $error }) => $error ? '#c62828' : '#d6d6d6'};
-  border-radius: 6px;
+  padding: 8px 10px;
+  border: 1.5px solid ${({ $error }) => $error ? '#c62828' : '#d6d6d6'};
+  border-radius: 5px;
   font-family: 'Inter', sans-serif;
-  font-size: 15px;
+  font-size: 13px;
   color: #003863;
   outline: none;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   &:focus {
     border-color: ${({ $error }) => $error ? '#c62828' : '#003863'};
   }
@@ -255,8 +263,8 @@ const EditInput = styled.input`
 
 const ToolbarRow = styled.div`
   display: flex;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 6px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
   align-items: center;
 `;
@@ -318,11 +326,11 @@ const StyleBtn = styled.button`
 `;
 
 const Preview = styled.div`
-  padding: 12px;
+  padding: 8px;
   border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  margin-bottom: 14px;
-  min-height: 40px;
+  border-radius: 5px;
+  margin-bottom: 8px;
+  min-height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -339,33 +347,33 @@ const ErrorMsg = styled.p`
 
 const GridLabel = styled.p`
   font-family: 'Inter', sans-serif;
-  font-size: 13px;
+  font-size: 11px;
   color: #666;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
   text-align: center;
 `;
 
 const Grid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 5px;
-  margin-bottom: 16px;
-  max-width: 280px;
+  gap: 4px;
+  margin-bottom: 10px;
+  max-width: 220px;
   margin-left: auto;
   margin-right: auto;
   border: 2px solid ${({ $error }) => $error ? '#c62828' : 'transparent'};
-  border-radius: 8px;
-  padding: ${({ $error }) => $error ? '4px' : '0'};
+  border-radius: 6px;
+  padding: ${({ $error }) => $error ? '3px' : '0'};
 `;
 
 const GridCell = styled.button`
-  padding: 10px 4px;
-  border: 2px solid ${({ $selected }) => $selected ? '#003863' : '#d6d6d6'};
-  border-radius: 6px;
+  padding: 7px 3px;
+  border: 1.5px solid ${({ $selected }) => $selected ? '#003863' : '#d6d6d6'};
+  border-radius: 5px;
   background: ${({ $selected }) => $selected ? '#003863' : '#f5f7fa'};
   color: ${({ $selected }) => $selected ? '#fff' : '#999'};
   font-family: 'Inter', sans-serif;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -383,12 +391,12 @@ const BtnRow = styled.div`
 
 const ApplyBtn = styled.button`
   flex: 1;
-  padding: 10px;
+  padding: 8px;
   background: #003863;
   border: none;
-  border-radius: 6px;
+  border-radius: 5px;
   font-family: 'Inter', sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   color: #fff;
   cursor: pointer;
   &:hover {
@@ -398,12 +406,12 @@ const ApplyBtn = styled.button`
 
 const CancelBtn = styled.button`
   flex: 1;
-  padding: 10px;
+  padding: 8px;
   background: none;
   border: 1px solid #d6d6d6;
-  border-radius: 6px;
+  border-radius: 5px;
   font-family: 'Inter', sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   color: #666;
   cursor: pointer;
   &:hover {
@@ -690,12 +698,7 @@ function UploadableImage({
   const dragStartRef = useRef(null);
 
   const getCornerOffset = () => {
-    const panelW = 420;
-    const panelH = 550;
-    return {
-      x: Math.round((window.innerWidth - panelW) / 2 - 20),
-      y: Math.round((window.innerHeight - panelH) / 2 - 20),
-    };
+    return { x: 0, y: 0 };
   };
 
   const getOffsetForCell = (cellKey) => {
