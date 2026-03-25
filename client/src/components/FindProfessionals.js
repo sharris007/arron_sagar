@@ -8,8 +8,23 @@ const Section = styled.section`
   flex-direction: row;
   background: #fff;
 
-  @media (max-width: 639px) {
+  @media (max-width: 768px) {
     flex-direction: column;
+  }
+`;
+
+const ImageWrap = styled.div`
+  width: 42.65%;
+  flex-shrink: 0;
+  height: 627px;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    height: 400px;
+  }
+
+  @media (max-width: 480px) {
+    height: 300px;
   }
 `;
 
@@ -32,8 +47,8 @@ const Content = styled.div`
   @media (max-width: 959px) {
     padding-left: 8.75%;
   }
-  @media (max-width: 639px) {
-    padding: 0 15%;
+  @media (max-width: 768px) {
+    padding: 30px 24px 40px;
   }
 `;
 
@@ -63,7 +78,7 @@ const FormRow = styled.div`
   flex-wrap: wrap;
   gap: 20px;
 
-  @media (max-width: 639px) {
+  @media (max-width: 768px) {
     flex-direction: column;
     gap: 0;
   }
@@ -99,8 +114,8 @@ const Input = styled.input`
     border-color: #003863;
   }
 
-  @media (max-width: 639px) {
-    width: 260px !important;
+  @media (max-width: 768px) {
+    width: 100% !important;
   }
 `;
 
@@ -127,9 +142,10 @@ const SubmitBtn = styled.button`
     background: #003156;
   }
 
-  @media (max-width: 639px) {
-    width: 221px;
-    height: 31px;
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: 316px;
+    height: 38px;
     font-size: 15px;
     line-height: normal;
   }
@@ -222,17 +238,19 @@ function FindProfessionals() {
 
   return (
     <Section id="FindLocalPros">
-      <UploadableImage
-        display="block"
-        width="42.65%"
-        height="627px"
-        shrink="0"
-        storageKey="findpros-side"
-        onReplace={(url) => setSideImage(url)}
-        onDelete={resetSide}
-      >
-        <SideImg src={sideImage || defaultSide} alt="Local Wedding Photography" />
-      </UploadableImage>
+      <ImageWrap>
+        <UploadableImage
+          display="block"
+          width="100%"
+          height="100%"
+          shrink="0"
+          storageKey="findpros-side"
+          onReplace={(url) => setSideImage(url)}
+          onDelete={resetSide}
+        >
+          <SideImg src={sideImage || defaultSide} alt="Local Wedding Photography" />
+        </UploadableImage>
+      </ImageWrap>
       <Content>
         <Title>Find Professionals</Title>
         {submitted ? (

@@ -122,8 +122,8 @@ async function archiveInCloudinary(url) {
 }
 
 // ── Static file serving ──────────────────────────────────
-app.use(express.static(path.join(__dirname, '../client/build')));
-app.use(express.static(path.join(__dirname, '../client/public')));
+app.use(express.static(path.join(__dirname, '../client/build'), { redirect: false }));
+app.use(express.static(path.join(__dirname, '../client/public'), { redirect: false }));
 
 // ── General upload ───────────────────────────────────────
 app.post('/api/upload', upload.single('image'), async (req, res) => {

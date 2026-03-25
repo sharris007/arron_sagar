@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import styled, { keyframes, css } from 'styled-components';
 import UploadableImage from './UploadableImage';
 import usePersistedImage from '../hooks/usePersistedImage';
 
@@ -82,6 +82,24 @@ const Cards = styled.div`
   }
 `;
 
+const flipIn = keyframes`
+  0% {
+    opacity: 0;
+    transform: perspective(800px) rotateY(-90deg) scale(0.85);
+  }
+  60% {
+    opacity: 1;
+    transform: perspective(800px) rotateY(10deg) scale(1.02);
+  }
+  80% {
+    transform: perspective(800px) rotateY(-5deg) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(800px) rotateY(0deg) scale(1);
+  }
+`;
+
 const Card = styled.div`
   background-color: #fff;
   width: 250px;
@@ -91,6 +109,12 @@ const Card = styled.div`
   flex-direction: column;
   align-items: center;
   text-align: center;
+  opacity: 0;
+  transform: perspective(800px) rotateY(-90deg) scale(0.85);
+
+  ${({ $visible, $delay }) => $visible && css`
+    animation: ${flipIn} 0.7s cubic-bezier(0.23, 1, 0.32, 1) ${$delay}s forwards;
+  `}
 
   @media (max-width: 959px) {
     width: 100%;
@@ -142,7 +166,7 @@ const Price = styled.p`
 `;
 
 const defaultServices = [
-  { icon: '/images/system_images/reel.svg', name: 'Wedding Video', price: 'starting from $995', link: '/video', alt: 'Wedding Video Icon' },
+  { icon: '/images/system_images/reel.svg', name: 'Headshots', price: 'starting from $995', link: '/headshots', alt: 'Photography Headshot Icon' },
   { icon: '/images/system_images/camera.svg', name: 'Wedding Photo', price: 'starting from $995', link: '/photo', alt: 'Wedding Photography Icon' },
   { icon: '/images/system_images/subwoofer.svg', name: 'Wedding DJ', price: 'starting at $995', link: '/dj', alt: 'Wedding DJ Icon' }
 ];
@@ -181,11 +205,28 @@ function Services() {
     saveSvcOrder(newOrder);
   };
 
+  const cardsRef = useRef(null);
+  const [cardsVisible, setCardsVisible] = useState(false);
+
+  const observerCallback = useCallback(([entry]) => {
+    if (entry.isIntersecting) {
+      setCardsVisible(true);
+    }
+  }, []);
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 639);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    const node = cardsRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(observerCallback, { threshold: 0.2 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [observerCallback]);
 
   const currentBg = bgImage || (isMobile
     ? `${process.env.PUBLIC_URL}/images/flower-bg.png`
@@ -197,13 +238,13 @@ function Services() {
         <Center>
           <Intro>
             <SmallText>Learn more about our</SmallText>
-            <BigText>Wedding Services</BigText>
+            <BigText>Services</BigText>
           </Intro>
-          <Cards>
+          <Cards ref={cardsRef}>
             {svcOrder.map((origIdx, visIdx) => {
               const svc = defaultServices[origIdx];
               return (
-                <Card key={origIdx}>
+                <Card key={origIdx} $visible={cardsVisible} $delay={visIdx * 0.15}>
                   <UploadableImage
                     width="74px"
                     height="74px"

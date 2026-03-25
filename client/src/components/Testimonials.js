@@ -500,8 +500,6 @@ function Testimonials() {
   const [addDesc, setAddDesc] = useState('');
   const [addPreviewUrl, setAddPreviewUrl] = useState(null);
   const [addInfo, setAddInfo] = useState('');
-  const [addService, setAddService] = useState('');
-  const [addPlace, setAddPlace] = useState('');
   const [movingItemId, setMovingItemId] = useState(null);
   const [displacedIdx, setDisplacedIdx] = useState(null);
   const [displacedDir, setDisplacedDir] = useState(null);
@@ -571,8 +569,6 @@ function Testimonials() {
     setAddDesc(analysis.description);
     setAddPreviewUrl(analysis.previewUrl);
     setAddInfo(analysis.description);
-    setAddService('');
-    setAddPlace('');
     setShowUploadPreview(true);
   };
 
@@ -584,8 +580,6 @@ function Testimonials() {
     formData.append('image', pendingAddFile);
     formData.append('title', addTitle.trim());
     formData.append('description', addDesc.trim());
-    formData.append('image_service', addService.trim());
-    formData.append('image_place', addPlace.trim());
     try {
       const res = await fetch('/api/carousel/image', { method: 'POST', body: formData });
       const data = await res.json();
@@ -607,8 +601,6 @@ function Testimonials() {
     if (addPreviewUrl) URL.revokeObjectURL(addPreviewUrl);
     setPendingAddFile(null);
     setAddPreviewUrl(null);
-    setAddService('');
-    setAddPlace('');
   };
 
   const handleSaveTestimonial = async () => {
@@ -680,15 +672,15 @@ function Testimonials() {
     }
   };
 
-  const handleSaveText = async (itemId, plainText, htmlText, posLabel, service, place) => {
+  const handleSaveText = async (itemId, plainText, htmlText, posLabel) => {
     try {
       await fetch(`/api/images/${itemId}/text`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_text: plainText, image_text_html: htmlText, text_position: posLabel, image_service: service || null, image_place: place || null }),
+        body: JSON.stringify({ image_text: plainText, image_text_html: htmlText, text_position: posLabel }),
       });
       setItems(prev => prev.map(it =>
-        it.id === itemId ? { ...it, image_text: plainText, image_text_html: htmlText, text_position: posLabel, image_service: service || null, image_place: place || null } : it
+        it.id === itemId ? { ...it, image_text: plainText, image_text_html: htmlText, text_position: posLabel } : it
       ));
     } catch (err) {
       console.error('Text save failed:', err);
@@ -791,18 +783,10 @@ function Testimonials() {
                   imageText={item.image_text}
                   imageTextHtml={item.image_text_html}
                   imagePosition={item.text_position}
-                  imageService={item.image_service}
-                  imagePlace={item.image_place}
-                  onSaveText={(plainText, htmlText, posLabel, service, place) => handleSaveText(item.id, plainText, htmlText, posLabel, service, place)}
+                  onSaveText={(plainText, htmlText, posLabel) => handleSaveText(item.id, plainText, htmlText, posLabel)}
                   onDeleteText={() => handleDeleteText(item.id)}
                 >
                   <SlideImage src={item.file_path} alt="Wedding" />
-                  {(item.image_service || item.image_place) && (
-                    <ImageFoot>
-                      {item.image_service && <FootService>{item.image_service}</FootService>}
-                      {item.image_place && <FootLocation>{item.image_place}</FootLocation>}
-                    </ImageFoot>
-                  )}
                 </UploadableImage>
               </Slide>
             );
@@ -940,18 +924,6 @@ function Testimonials() {
               value={addDesc}
               onChange={(e) => setAddDesc(e.target.value)}
               style={{ minHeight: 60 }}
-            />
-            <FormLabel>Service <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FormLabel>
-            <FormInput
-              placeholder="e.g. Photography, Disc Jockey..."
-              value={addService}
-              onChange={(e) => setAddService(e.target.value)}
-            />
-            <FormLabel>Place <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FormLabel>
-            <FormInput
-              placeholder="e.g. Chicago, IL"
-              value={addPlace}
-              onChange={(e) => setAddPlace(e.target.value)}
             />
             <FormBtnRow>
               <FormPrimary onClick={handleConfirmAddImage}>Upload</FormPrimary>
