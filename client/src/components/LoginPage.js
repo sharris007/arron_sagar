@@ -301,8 +301,7 @@ function LoginPage({ onClose }) {
         </Body>
 
         <FooterSection>
-          <FooterLogo src={`${process.env.PUBLIC_URL}/images/logo-white.svg`} alt="The Pros Weddings" />
-          <FooterPhone>Call 1-800-843-7767</FooterPhone>
+          <FooterLogo src={`${process.env.PUBLIC_URL}/images/system_images/aaron_it_out_footer.png`} alt="Aaron It Out Photography" />
         </FooterSection>
 
         <AwardsStrip>

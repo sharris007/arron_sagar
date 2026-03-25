@@ -15,6 +15,16 @@ const poolConfig = {
 
 let pool;
 
+const ENVIRONMENT = process.env.NODE_ENV || 'development';
+const APP_NAME = process.env.APP_NAME || 'Aaron Sager';
+const CLOUD_ROOT = APP_NAME.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+$/, '') + '_' + ENVIRONMENT;
+
+const DEFAULT_SERVICES = [
+  { service_name: 'Headshots',     price: 'starting from $995', link: '/headshots', icon_key: 'reel' },
+  { service_name: 'Wedding Photo', price: 'starting from $995', link: '/photo',     icon_key: 'camera' },
+  { service_name: 'Wedding DJ',    price: 'starting at $995',   link: '/dj',        icon_key: 'subwoofer' },
+];
+
 const DEFAULT_CAROUSEL = [
   { item_type: 'image',  file_path: '/images/carousel/golden-field.png' },
   { item_type: 'quote',  file_path: null, quote_text: '\u201cCamilla was phenomenal! It was such a pleasure working with her and the photos came out AMAZING!!! Could NOT be happier with our experience!\u201d', quote_author: '-Laura', quote_service: 'Photography', quote_location: 'Newtown, PA' },
@@ -140,6 +150,35 @@ async function initDatabase() {
         );
       }
       console.log('Carousel seeded with default items');
+    }
+
+    // ── Services table ──
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS services (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        position INT NOT NULL DEFAULT 0,
+        section VARCHAR(50) NOT NULL DEFAULT 'card',
+        icon_path VARCHAR(500),
+        service_name VARCHAR(255) NOT NULL,
+        price VARCHAR(255),
+        link VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await addColumnSafe(connection, 'services', 'section', "VARCHAR(50) NOT NULL DEFAULT 'card'");
+
+    const [svcRows] = await connection.query("SELECT COUNT(*) AS cnt FROM services WHERE section = 'card'");
+    if (svcRows[0].cnt === 0) {
+      for (let i = 0; i < DEFAULT_SERVICES.length; i++) {
+        const s = DEFAULT_SERVICES[i];
+        const iconUrl = `https://res.cloudinary.com/priority-endeavors-llc/image/upload/${CLOUD_ROOT}/services/${s.icon_key}.svg`;
+        await connection.query(
+          "INSERT INTO services (position, section, icon_path, service_name, price, link) VALUES (?, 'card', ?, ?, ?, ?)",
+          [i, iconUrl, s.service_name, s.price, s.link]
+        );
+      }
+      console.log('Services seeded with defaults');
     }
 
     console.log('Database tables initialized');

@@ -15,6 +15,7 @@
     "heroku-postbuild": "cd server && npm install && cd ../client && npm install && npm run build"
   },
   "dependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "sharp": "^0.34.5"
   }
 }

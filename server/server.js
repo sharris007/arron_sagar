@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const sharp = require('sharp');
 const cloudinary = require('cloudinary').v2;
 const { getPool, initDatabase } = require('./config/db');
 
@@ -461,6 +462,260 @@ app.post('/api/find-professionals', async (req, res) => {
     success: true,
     message: 'Thank you! A wedding consultant will be in touch shortly.'
   });
+});
+
+// ── Stencil pipeline ─────────────────────────────────────
+
+const BADGE_TEMPLATE = path.join(__dirname, 'assets/badge_template.png');
+const ICON_COLOR = { r: 0, g: 56, b: 99 }; // #003863
+
+async function stencilIcon(buffer) {
+  const badge = await sharp(BADGE_TEMPLATE).ensureAlpha().toBuffer();
+  const badgeMeta = await sharp(badge).metadata();
+  const bW = badgeMeta.width;
+  const bH = badgeMeta.height;
+  const iconSize = Math.round(Math.min(bW, bH) * 0.48);
+
+  const preprocessed = await sharp(buffer)
+    .flatten({ background: { r: 255, g: 255, b: 255 } })
+    .resize(iconSize, iconSize, { fit: 'contain', background: { r: 255, g: 255, b: 255 } })
+    .greyscale()
+    .normalize()
+    .toBuffer();
+
+  // Edge detection via Laplacian kernel for clean outlines
+  const { data: edgeData } = await sharp(preprocessed)
+    .sharpen({ sigma: 2 })
+    .convolve({ width: 3, height: 3, kernel: [-1, -1, -1, -1, 8, -1, -1, -1, -1] })
+    .normalize()
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  // Smoothed threshold for solid fill areas
+  const { data: fillData, info } = await sharp(preprocessed)
+    .blur(1.2)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const w = info.width;
+  const h = info.height;
+
+  // Detect background brightness from corner samples
+  const corners = [0, w - 1, (h - 1) * w, (h - 1) * w + w - 1];
+  let cornerSum = 0;
+  for (const idx of corners) cornerSum += fillData[idx * 4];
+  const bgIsLight = cornerSum / corners.length > 128;
+
+  // Combine solid fill + edge outlines to match SVG icon style
+  const pixels = Buffer.alloc(w * h * 4);
+  for (let i = 0; i < w * h; i++) {
+    const grey = fillData[i * 4];
+    const edge = edgeData[i * 4];
+    const isFill = bgIsLight ? grey < 110 : grey > 145;
+    const isEdge = edge > 50;
+    pixels[i * 4] = ICON_COLOR.r;
+    pixels[i * 4 + 1] = ICON_COLOR.g;
+    pixels[i * 4 + 2] = ICON_COLOR.b;
+    pixels[i * 4 + 3] = (isFill || isEdge) ? 255 : 0;
+  }
+
+  const coloredIcon = await sharp(pixels, { raw: { width: w, height: h, channels: 4 } })
+    .png()
+    .toBuffer();
+
+  const left = Math.round((bW - w) / 2);
+  const top = Math.round((bH - h) / 2);
+
+  return sharp(badge)
+    .composite([{ input: coloredIcon, left, top }])
+    .png()
+    .toBuffer();
+}
+
+// ── Services API ─────────────────────────────────────────
+
+app.get('/api/services', async (req, res) => {
+  const pool = getPool();
+  if (!pool) return res.json({ success: true, items: [], background: null });
+  try {
+    const [cards] = await pool.query("SELECT * FROM services WHERE section = 'card' ORDER BY position ASC");
+    const [bgRows] = await pool.query("SELECT * FROM services WHERE section = 'background' LIMIT 1");
+    res.json({
+      success: true,
+      items: cards,
+      background: bgRows.length ? bgRows[0].icon_path : null,
+    });
+  } catch (err) {
+    console.error('Services fetch failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/footer', async (req, res) => {
+  const pool = getPool();
+  if (!pool) return res.json({ success: true, footer: null });
+  try {
+    const [rows] = await pool.query("SELECT file_path FROM images WHERE section = 'footer' LIMIT 1");
+    res.json({ success: true, footer: rows.length ? rows[0].file_path : null });
+  } catch (err) {
+    console.error('Footer fetch failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/services', upload.single('icon'), async (req, res) => {
+  const { service_name, price, link } = req.body;
+  if (!service_name) return res.status(400).json({ success: false, error: 'service_name required' });
+  const pool = getPool();
+  if (!pool) return res.status(500).json({ success: false, error: 'No database' });
+
+  let iconUrl = null;
+  if (req.file) {
+    try {
+      const stenciled = await stencilIcon(req.file.buffer);
+      const result = await uploadToCloudinary(stenciled, 'services', req.file.originalname);
+      iconUrl = result.secure_url;
+    } catch (err) {
+      console.error('Icon stencil/upload failed:', err.message);
+    }
+  }
+
+  try {
+    const [maxRow] = await pool.query("SELECT COALESCE(MAX(position), -1) AS maxPos FROM services WHERE section = 'card'");
+    const nextPos = maxRow[0].maxPos + 1;
+    const [ins] = await pool.query(
+      "INSERT INTO services (position, section, icon_path, service_name, price, link) VALUES (?, 'card', ?, ?, ?, ?)",
+      [nextPos, iconUrl, service_name, price || null, link || '#']
+    );
+    res.json({ success: true, id: ins.insertId, icon_path: iconUrl });
+  } catch (err) {
+    console.error('Service create failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── Services background image ──
+
+app.put('/api/services/background', upload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, error: 'No file provided' });
+  const pool = getPool();
+  if (!pool) return res.status(500).json({ success: false, error: 'No database' });
+  try {
+    const [existing] = await pool.query("SELECT * FROM services WHERE section = 'background' LIMIT 1");
+    if (existing.length && existing[0].icon_path) {
+      await archiveInCloudinary(existing[0].icon_path);
+    }
+    const result = await uploadToCloudinary(req.file.buffer, 'services', req.file.originalname);
+    if (existing.length) {
+      await pool.query("UPDATE services SET icon_path = ? WHERE section = 'background'", [result.secure_url]);
+    } else {
+      await pool.query(
+        "INSERT INTO services (position, section, icon_path, service_name, price) VALUES (0, 'background', ?, 'Services Background', NULL)",
+        [result.secure_url]
+      );
+    }
+    res.json({ success: true, background: result.secure_url });
+  } catch (err) {
+    console.error('Background upload failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/services/background', async (req, res) => {
+  const pool = getPool();
+  if (!pool) return res.status(500).json({ success: false, error: 'No database' });
+  try {
+    const [rows] = await pool.query("SELECT * FROM services WHERE section = 'background' LIMIT 1");
+    if (rows.length) {
+      if (rows[0].icon_path) await archiveInCloudinary(rows[0].icon_path);
+      await pool.query("DELETE FROM services WHERE section = 'background'");
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Background delete failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/services/reorder', async (req, res) => {
+  const { idA, idB } = req.body;
+  const pool = getPool();
+  if (!pool) return res.status(500).json({ success: false, error: 'No database' });
+  try {
+    const [rows] = await pool.query('SELECT id, position FROM services WHERE id IN (?, ?)', [idA, idB]);
+    if (rows.length !== 2) return res.status(404).json({ success: false, error: 'Items not found' });
+    const posA = rows.find(r => r.id === idA).position;
+    const posB = rows.find(r => r.id === idB).position;
+    await pool.query('UPDATE services SET position = ? WHERE id = ?', [posB, idA]);
+    await pool.query('UPDATE services SET position = ? WHERE id = ?', [posA, idB]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Services reorder failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/services/:id', async (req, res) => {
+  const { id } = req.params;
+  const { service_name, price, link } = req.body;
+  const pool = getPool();
+  if (!pool) return res.status(500).json({ success: false, error: 'No database' });
+  try {
+    await pool.query(
+      'UPDATE services SET service_name = ?, price = ?, link = ? WHERE id = ?',
+      [service_name, price || null, link || '#', id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Service update failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/services/:id/icon', upload.single('icon'), async (req, res) => {
+  const { id } = req.params;
+  if (!req.file) return res.status(400).json({ success: false, error: 'No file provided' });
+  const pool = getPool();
+  if (!pool) return res.status(500).json({ success: false, error: 'No database' });
+
+  try {
+    const [rows] = await pool.query('SELECT icon_path FROM services WHERE id = ?', [id]);
+    if (!rows.length) return res.status(404).json({ success: false, error: 'Not found' });
+
+    if (rows[0].icon_path) {
+      await archiveInCloudinary(rows[0].icon_path);
+    }
+
+    const stenciled = await stencilIcon(req.file.buffer);
+    const result = await uploadToCloudinary(stenciled, 'services', req.file.originalname);
+    await pool.query('UPDATE services SET icon_path = ? WHERE id = ?', [result.secure_url, id]);
+    res.json({ success: true, icon_path: result.secure_url });
+  } catch (err) {
+    console.error('Service icon replace failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/services/:id', async (req, res) => {
+  const { id } = req.params;
+  const pool = getPool();
+  if (!pool) return res.status(500).json({ success: false, error: 'No database' });
+  try {
+    const [rows] = await pool.query('SELECT * FROM services WHERE id = ?', [id]);
+    if (!rows.length) return res.status(404).json({ success: false, error: 'Not found' });
+    const item = rows[0];
+    await pool.query('DELETE FROM services WHERE id = ?', [id]);
+    await pool.query('UPDATE services SET position = position - 1 WHERE position > ?', [item.position]);
+    if (item.icon_path) {
+      await archiveInCloudinary(item.icon_path);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Service delete failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.get('*', (req, res) => {

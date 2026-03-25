@@ -1,7 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import UploadableImage from './UploadableImage';
-import usePersistedImage from '../hooks/usePersistedImage';
 
 const StyledFooter = styled.footer`
   display: flex;
@@ -10,40 +8,35 @@ const StyledFooter = styled.footer`
   flex-direction: column;
   background: #003156;
   color: #fff;
-  padding: 29px 0 50px;
+  padding: 30px 0 40px;
 `;
 
 const LogoImg = styled.img`
-  width: 100%;
+  width: 280px;
+  height: auto;
   display: block;
-`;
+  object-fit: contain;
 
-const Phone = styled.span`
-  display: block;
-  text-transform: uppercase;
-  font-family: 'Inter', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  letter-spacing: 1.5px;
+  @media (max-width: 639px) {
+    width: 220px;
+  }
 `;
 
 function Footer() {
-  const defaultLogo = `${process.env.PUBLIC_URL}/images/logo-white.svg`;
-  const [logoSrc, setLogoSrc, , resetLogo] = usePersistedImage('footer-logo', defaultLogo);
+  const [footerLogo, setFooterLogo] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/footer')
+      .then(r => r.json())
+      .then(data => { if (data.success && data.footer) setFooterLogo(data.footer); })
+      .catch(() => {});
+  }, []);
+
+  const fallback = `${process.env.PUBLIC_URL}/images/system_images/aaron_it_out_footer.png`;
 
   return (
     <StyledFooter>
-      <UploadableImage
-        width="10%"
-        style={{ minWidth: 100, marginBottom: 14 }}
-        storageKey="footer-logo"
-        onReplace={(url) => setLogoSrc(url)}
-        onDelete={resetLogo}
-      >
-        <LogoImg src={logoSrc || defaultLogo} alt="The Pros Weddings" />
-      </UploadableImage>
-      <Phone>Call 1-800-843-7767</Phone>
+      <LogoImg src={footerLogo || fallback} alt="Aaron It Out Photography" />
     </StyledFooter>
   );
 }
