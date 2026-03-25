@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
@@ -12,6 +13,22 @@ const PORT = process.env.PORT || 5000;
 const APP_NAME = process.env.APP_NAME || 'Aaron Sager';
 const ENVIRONMENT = process.env.NODE_ENV || 'development';
 const CLOUD_ROOT = APP_NAME.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+$/, '') + '_' + ENVIRONMENT;
+
+app.set('trust proxy', 1);
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+const FORCE_HTTPS = process.env.FORCE_HTTPS === 'true';
+
+app.use((req, res, next) => {
+  if (FORCE_HTTPS && req.header('x-forwarded-proto') !== 'https') {
+    return res.redirect(301, `https://${req.hostname}${req.url}`);
+  }
+  next();
+});
 
 app.use(cors());
 app.use(express.json());
