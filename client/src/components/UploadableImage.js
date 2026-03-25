@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 import { useAdmin } from '../AdminContext';
 
 const fontFamilies = [
@@ -198,6 +198,13 @@ const EditModal = styled.div`
   }
 `;
 
+const panelSlideDown = keyframes`
+  0% { opacity: 1; transform: translateY(0); }
+  30% { opacity: 0; transform: translateY(120%); }
+  70% { opacity: 0; transform: translateY(120%); }
+  100% { opacity: 1; transform: translateY(0); }
+`;
+
 const EditPanel = styled.div`
   background: rgba(255, 255, 255, 0.95);
   border-radius: 10px;
@@ -209,14 +216,36 @@ const EditPanel = styled.div`
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
   cursor: default;
   transition: ${({ $noDragTransition }) => $noDragTransition ? 'none' : 'transform 0.3s ease'};
+  ${({ $preview }) => $preview && css`
+    animation: ${panelSlideDown} 2.5s ease-in-out;
+    pointer-events: none;
+  `}
 
   @media (max-width: 639px) {
-    width: 88vw;
-    max-width: 320px;
-    padding: 12px 14px;
+    width: 80vw;
+    max-width: 280px;
+    padding: 10px 10px;
     padding-top: 4px;
     max-height: 60vh;
   }
+`;
+
+const PreviewBadge = styled.div`
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 56, 99, 0.88);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  padding: 10px 24px;
+  border-radius: 24px;
+  z-index: 1001;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 `;
 
 const DragHandle = styled.div`
@@ -668,6 +697,7 @@ function UploadableImage({
   const [uploading, setUploading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const [editText, setEditText] = useState('');
   const [selectedCell, setSelectedCell] = useState(null);
   const [fontSize, setFontSize] = useState(24);
@@ -1149,8 +1179,9 @@ function UploadableImage({
       )}
       <HiddenInput ref={fileRef} type="file" accept="image/*" onChange={handleFile} />
       {editOpen && (
-        <EditModal $dragging={isDragging} onClick={() => { setEditOpen(false); setDragOffset({ x: 0, y: 0 }); }}>
-          <EditPanel onClick={(e) => e.stopPropagation()} $noDragTransition={isDragging} style={{ transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` }}>
+        <EditModal $dragging={isDragging} onClick={() => { if (!previewMode) { setEditOpen(false); setDragOffset({ x: 0, y: 0 }); } }}>
+          {previewMode && <PreviewBadge>Previewing text position…</PreviewBadge>}
+          <EditPanel onClick={(e) => e.stopPropagation()} $noDragTransition={isDragging} $preview={previewMode} style={{ transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` }}>
             {isTestimonial ? (
               <>
                 <EditTitle>Edit Testimonial</EditTitle>
@@ -1249,6 +1280,10 @@ function UploadableImage({
                             setSelectedCell(next);
                             if (errors.position) setErrors(p => ({ ...p, position: '' }));
                             setDragOffset(getOffsetForCell(next));
+                            if (next && editText.trim()) {
+                              setPreviewMode(true);
+                              setTimeout(() => setPreviewMode(false), 2500);
+                            }
                           }}
                           $selected={selectedCell === key}
                           title={cellLabels[row][col]}
