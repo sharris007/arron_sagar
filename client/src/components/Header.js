@@ -1,7 +1,5 @@
-import React from 'react';
-import styled from 'styled-components';
-import UploadableImage from './UploadableImage';
-import usePersistedImage from '../hooks/usePersistedImage';
+import React, { useState, useEffect } from 'react';
+import styled, { keyframes } from 'styled-components';
 
 const StyledHeader = styled.header`
   position: sticky;
@@ -12,6 +10,7 @@ const StyledHeader = styled.header`
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
   height: 72px;
+  overflow: visible;
 `;
 
 const Container = styled.div`
@@ -27,22 +26,20 @@ const Container = styled.div`
   }
 `;
 
-const LogoLink = styled.a`
+const LogoLink = styled.button`
   display: flex;
   align-items: center;
   text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
 `;
 
 const LogoImg = styled.img`
-  height: 68px;
+  height: 72px;
   width: auto;
   object-fit: contain;
-  transform: scaleX(1.05);
-  transform-origin: left center;
-
-  @media (max-width: 639px) {
-    height: 50px;
-  }
 `;
 
 const Nav = styled.nav`
@@ -104,29 +101,214 @@ const SignInBtn = styled.button`
   }
 `;
 
+const fadeIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+const slideUp = keyframes`
+  from { opacity: 0; transform: translateY(40px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+`;
+
+const Overlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ${fadeIn} 0.3s ease;
+  padding: 24px;
+`;
+
+const ModalCard = styled.div`
+  background: #fff;
+  border-radius: 16px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: ${slideUp} 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: row;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    max-width: 500px;
+  }
+`;
+
+const ModalImageWrap = styled.div`
+  flex: 0 0 45%;
+  background: linear-gradient(135deg, #f8f6f3 0%, #eae4dc 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  border-radius: 16px 0 0 16px;
+
+  @media (max-width: 768px) {
+    border-radius: 16px 16px 0 0;
+    padding: 24px;
+  }
+`;
+
+const ModalImage = styled.img`
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+`;
+
+const ModalContent = styled.div`
+  flex: 1;
+  padding: 40px 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  @media (max-width: 768px) {
+    padding: 28px 24px;
+  }
+`;
+
+const ModalName = styled.h2`
+  font-family: 'Georgia', serif;
+  font-size: 28px;
+  color: #003863;
+  margin: 0 0 4px;
+`;
+
+const ModalTitle = styled.p`
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #b8963e;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 0 0 20px;
+`;
+
+const ModalBio = styled.p`
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #444;
+  margin: 0 0 16px;
+`;
+
+const ModalStats = styled.div`
+  display: flex;
+  gap: 32px;
+  margin-top: 12px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+`;
+
+const Stat = styled.div`
+  text-align: center;
+`;
+
+const StatNumber = styled.div`
+  font-family: 'Georgia', serif;
+  font-size: 24px;
+  color: #003863;
+  font-weight: 700;
+`;
+
+const StatLabel = styled.div`
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 2px;
+`;
+
+const CloseBtn = styled.button`
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #999;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+  &:hover { color: #333; }
+`;
+
+const ModalOuter = styled.div`
+  position: relative;
+`;
+
 function Header({ onLoginClick }) {
-  const defaultLogo = `${process.env.PUBLIC_URL}/images/system_images/logo.png`;
-  const [logoSrc, setLogoSrc, deleteLogo, resetLogo] = usePersistedImage('header-logo', defaultLogo);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (modalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [modalOpen]);
 
   return (
-    <StyledHeader>
-      <Container>
-        <LogoLink href="/">
-          <UploadableImage
-            storageKey="header-logo"
-            onReplace={(url) => setLogoSrc(url)}
-            onDelete={resetLogo}
-          >
-            <LogoImg src={logoSrc || defaultLogo} alt="Aaron It Out Photography" />
-          </UploadableImage>
-        </LogoLink>
-        <Nav>
-          <GetStartedBtn href="#FindLocalPros">Get Started</GetStartedBtn>
-          <Divider />
-          <SignInBtn onClick={onLoginClick}>Sign In</SignInBtn>
-        </Nav>
-      </Container>
-    </StyledHeader>
+    <>
+      <StyledHeader>
+        <Container>
+          <LogoLink onClick={() => setModalOpen(true)}>
+            <LogoImg src={`${process.env.PUBLIC_URL}/images/system_images/aaron_it_out_logo.png`} alt="Aaron It Out Photography" />
+          </LogoLink>
+          <Nav>
+            <GetStartedBtn href="#FindLocalPros">Get Started</GetStartedBtn>
+            <Divider />
+            <SignInBtn onClick={onLoginClick}>Sign In</SignInBtn>
+          </Nav>
+        </Container>
+      </StyledHeader>
+
+      {modalOpen && (
+        <Overlay onClick={() => setModalOpen(false)}>
+          <ModalOuter>
+            <CloseBtn onClick={() => setModalOpen(false)}>&times;</CloseBtn>
+            <ModalCard onClick={e => e.stopPropagation()}>
+              <ModalImageWrap>
+                <ModalImage src={`${process.env.PUBLIC_URL}/images/system_images/aaron_it_out_large.png`} alt="Aaron Sager" />
+              </ModalImageWrap>
+              <ModalContent>
+                <ModalName>Aaron Sager</ModalName>
+                <ModalTitle>Owner &amp; Lead Photographer</ModalTitle>
+                <ModalBio>
+                  With over 15 years behind the lens, Aaron brings an unmatched energy and artistic eye to every shoot. Specializing in weddings, portraits, and events, he believes every moment tells a story worth capturing.
+                </ModalBio>
+                <ModalBio>
+                  Based in the heart of the community, Aaron has photographed 500+ weddings and countless milestone celebrations. His signature style blends candid emotion with cinematic composition.
+                </ModalBio>
+                <ModalStats>
+                  <Stat>
+                    <StatNumber>15+</StatNumber>
+                    <StatLabel>Years</StatLabel>
+                  </Stat>
+                  <Stat>
+                    <StatNumber>500+</StatNumber>
+                    <StatLabel>Weddings</StatLabel>
+                  </Stat>
+                  <Stat>
+                    <StatNumber>10K+</StatNumber>
+                    <StatLabel>Photos</StatLabel>
+                  </Stat>
+                </ModalStats>
+              </ModalContent>
+            </ModalCard>
+          </ModalOuter>
+        </Overlay>
+      )}
+    </>
   );
 }
 
