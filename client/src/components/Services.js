@@ -30,8 +30,8 @@ const Intro = styled.div`
   margin-bottom: 41px;
 
   @media (max-width: 639px) {
-    text-align: left;
-    padding-left: 15%;
+    text-align: center;
+    padding-left: 0;
     margin-bottom: 26px;
   }
 `;
@@ -61,6 +61,10 @@ const BigText = styled.h2`
     font-size: 40px;
     line-height: 61px;
   }
+  @media (max-width: 639px) {
+    font-size: 34px;
+    line-height: 42px;
+  }
 `;
 
 const CardsWrap = styled.div`
@@ -74,9 +78,9 @@ const CardsWrap = styled.div`
   }
   @media (max-width: 639px) {
     flex-direction: column;
-    align-items: flex-start;
-    padding-left: 10%;
-    gap: 16px;
+    align-items: stretch;
+    padding: 0 7%;
+    gap: 18px;
   }
 `;
 
@@ -123,9 +127,10 @@ const Card = styled.div`
   @media (max-width: 639px) {
     background-color: transparent;
     box-shadow: none;
+    border-radius: 0;
     flex-direction: row;
     align-items: center;
-    width: auto;
+    width: 100%;
     max-width: none;
     padding: 0;
     text-align: left;
@@ -139,10 +144,10 @@ const IconWrap = styled.div`
   flex-shrink: 0;
 
   @media (max-width: 639px) {
-    width: 48px;
-    height: 48px;
+    width: 62px;
+    height: 62px;
     margin-bottom: 0;
-    margin-right: 14px;
+    margin-right: 16px;
   }
 `;
 
@@ -169,9 +174,9 @@ const ServiceName = styled.span`
   margin-bottom: 6px;
 
   @media (max-width: 639px) {
-    font-size: 16px;
-    line-height: 20px;
-    margin-bottom: 2px;
+    font-size: 18px;
+    line-height: 22px;
+    margin-bottom: 3px;
   }
 `;
 
@@ -183,8 +188,8 @@ const PriceText = styled.p`
   text-transform: lowercase;
 
   @media (max-width: 639px) {
-    font-size: 13px;
-    line-height: 18px;
+    font-size: 14px;
+    line-height: 20px;
   }
 `;
 

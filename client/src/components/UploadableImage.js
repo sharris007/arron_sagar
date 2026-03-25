@@ -38,6 +38,18 @@ const positionMap = {
   '2-2': { top: '85%', left: '85%' },
 };
 
+const mobilePositionMap = {
+  '0-0': { top: '18%', left: '25%' },
+  '0-1': { top: '18%', left: '50%' },
+  '0-2': { top: '18%', left: '75%' },
+  '1-0': { top: '50%', left: '25%' },
+  '1-1': { top: '50%', left: '50%' },
+  '1-2': { top: '50%', left: '75%' },
+  '2-0': { top: '80%', left: '25%' },
+  '2-1': { top: '80%', left: '50%' },
+  '2-2': { top: '80%', left: '75%' },
+};
+
 const cellLabels = [
   ['Top Left', 'Top Center', 'Top Right'],
   ['Mid Left', 'Center', 'Mid Right'],
@@ -134,6 +146,7 @@ const TextOverlay = styled.div`
   bottom: 0;
   z-index: 11;
   pointer-events: none;
+  overflow: hidden;
 `;
 
 const OverlayText = styled.span`
@@ -142,12 +155,26 @@ const OverlayText = styled.span`
   max-width: 30%;
   text-align: center;
   transform: translate(-50%, -50%);
+  transform-origin: center center;
   text-shadow:
     -1px -1px 0 rgba(0,0,0,0.8),
      1px -1px 0 rgba(0,0,0,0.8),
     -1px  1px 0 rgba(0,0,0,0.8),
      1px  1px 0 rgba(0,0,0,0.8),
      0    2px 4px rgba(0,0,0,0.4);
+
+  @media (max-width: 959px) {
+    max-width: 45%;
+    transform: translate(-50%, -50%) scale(0.75);
+  }
+  @media (max-width: 639px) {
+    max-width: 65%;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  @media (max-width: 400px) {
+    max-width: 75%;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
 `;
 
 const EditModal = styled.div`
@@ -175,6 +202,13 @@ const EditPanel = styled.div`
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   cursor: default;
   transition: ${({ $noDragTransition }) => $noDragTransition ? 'none' : 'transform 0.3s ease'};
+
+  @media (max-width: 639px) {
+    width: 92vw;
+    max-width: 420px;
+    padding: 20px 16px;
+    padding-top: 8px;
+  }
 `;
 
 const DragHandle = styled.div`
@@ -611,6 +645,15 @@ function UploadableImage({
   const adminMode = useAdmin();
   const useDb = typeof onSaveText === 'function';
   const isTestimonial = !!isTestimonialProp || !!testimonialData;
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 639);
+
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 639px)');
+    const handler = (e) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
   const fileRef = useRef(null);
   const menuRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -962,8 +1005,9 @@ function UploadableImage({
     textAlign: 'center',
   };
 
-  const pos = overlay ? positionMap[overlay.pos] : null;
-  const livePos = editOpen && selectedCell && !isTestimonial ? positionMap[selectedCell] : null;
+  const activeMap = isMobile ? mobilePositionMap : positionMap;
+  const pos = overlay ? activeMap[overlay.pos] : null;
+  const livePos = editOpen && selectedCell && !isTestimonial ? activeMap[selectedCell] : null;
 
   return (
     <Wrapper

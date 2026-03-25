@@ -45,6 +45,90 @@ const LogoImg = styled.img`
 const Nav = styled.nav`
   display: flex;
   align-items: center;
+
+  @media (max-width: 639px) {
+    display: none;
+  }
+`;
+
+const HamburgerBtn = styled.button`
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+
+  @media (max-width: 639px) {
+    display: flex;
+  }
+`;
+
+const HamburgerLine = styled.span`
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: #003863;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+
+  &:nth-child(1) {
+    transform: ${({ $open }) => $open ? 'rotate(45deg) translate(5px, 5px)' : 'none'};
+  }
+  &:nth-child(2) {
+    opacity: ${({ $open }) => $open ? 0 : 1};
+  }
+  &:nth-child(3) {
+    transform: ${({ $open }) => $open ? 'rotate(-45deg) translate(5px, -5px)' : 'none'};
+  }
+`;
+
+const MobileMenuOverlay = styled.div`
+  display: none;
+
+  @media (max-width: 639px) {
+    display: block;
+    position: fixed;
+    top: 72px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 99;
+    opacity: ${({ $open }) => $open ? 1 : 0};
+    pointer-events: ${({ $open }) => $open ? 'auto' : 'none'};
+    transition: opacity 0.3s ease;
+  }
+`;
+
+const MobileMenu = styled.div`
+  display: none;
+
+  @media (max-width: 639px) {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 72px;
+    right: 0;
+    width: 220px;
+    background: #fff;
+    box-shadow: -4px 4px 16px rgba(0, 0, 0, 0.12);
+    border-radius: 0 0 0 12px;
+    padding: 20px 24px;
+    gap: 18px;
+    z-index: 100;
+    transform: translateX(${({ $open }) => $open ? '0' : '100%'});
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+`;
+
+const MobileMenuItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
 `;
 
 const GetStartedBtn = styled.a`
@@ -293,6 +377,7 @@ const ModalOuter = styled.div`
 
 function Header({ onLoginClick, isAdmin, onAdminToggle }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (modalOpen) {
@@ -302,6 +387,14 @@ function Header({ onLoginClick, isAdmin, onAdminToggle }) {
     }
     return () => { document.body.style.overflow = ''; };
   }, [modalOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const mql = window.matchMedia('(min-width: 640px)');
+    const handler = (e) => { if (e.matches) setMenuOpen(false); };
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [menuOpen]);
 
   return (
     <>
@@ -321,8 +414,26 @@ function Header({ onLoginClick, isAdmin, onAdminToggle }) {
             <Divider />
             <SignInBtn onClick={onLoginClick}>Sign In</SignInBtn>
           </Nav>
+
+          <HamburgerBtn onClick={() => setMenuOpen(prev => !prev)} aria-label="Toggle menu">
+            <HamburgerLine $open={menuOpen} />
+            <HamburgerLine $open={menuOpen} />
+            <HamburgerLine $open={menuOpen} />
+          </HamburgerBtn>
         </Container>
       </StyledHeader>
+
+      <MobileMenuOverlay $open={menuOpen} onClick={() => setMenuOpen(false)} />
+      <MobileMenu $open={menuOpen}>
+        <MobileMenuItem>
+          <AdminLabel $active={isAdmin}>Admin</AdminLabel>
+          <ToggleTrack $on={isAdmin} onClick={onAdminToggle} aria-label="Toggle admin mode">
+            <ToggleThumb $on={isAdmin} />
+          </ToggleTrack>
+        </MobileMenuItem>
+        <GetStartedBtn href="#FindLocalPros" onClick={() => setMenuOpen(false)}>Get Started</GetStartedBtn>
+        <SignInBtn onClick={() => { setMenuOpen(false); onLoginClick(); }}>Sign In</SignInBtn>
+      </MobileMenu>
 
       {modalOpen && (
         <Overlay onClick={() => setModalOpen(false)}>

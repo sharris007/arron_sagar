@@ -9,12 +9,15 @@ const Section = styled.section`
   background-position: center;
   background-size: cover;
   position: relative;
+  overflow: hidden;
 
   @media (max-width: 1279px) {
     height: 65.42vw;
   }
   @media (max-width: 639px) {
-    height: 550px;
+    height: 75vw;
+    min-height: 280px;
+    max-height: 480px;
   }
 `;
 
@@ -26,12 +29,15 @@ const PlaceholderSection = styled.section`
   align-items: center;
   justify-content: center;
   position: relative;
+  overflow: hidden;
 
   @media (max-width: 1279px) {
     height: 65.42vw;
   }
   @media (max-width: 639px) {
-    height: 550px;
+    height: 75vw;
+    min-height: 280px;
+    max-height: 480px;
   }
 `;
 
