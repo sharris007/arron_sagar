@@ -613,6 +613,7 @@ function UploadableImage({
   const menuRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editText, setEditText] = useState('');
   const [selectedCell, setSelectedCell] = useState(null);
@@ -637,13 +638,26 @@ function UploadableImage({
   const [uploadDesc, setUploadDesc] = useState('');
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState(null);
   const [uploadInfo, setUploadInfo] = useState('');
-  const [uploadService, setUploadService] = useState('');
-  const [uploadPlace, setUploadPlace] = useState('');
   const [slideAnim, setSlideAnim] = useState(null);
   const wrapperRef = useRef(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef(null);
+
+  const getCornerOffset = () => {
+    const panelW = 420;
+    const panelH = 550;
+    return {
+      x: Math.round((window.innerWidth - panelW) / 2 - 20),
+      y: Math.round((window.innerHeight - panelH) / 2 - 20),
+    };
+  };
+
+  const getOffsetForCell = (cellKey) => {
+    if (!cellKey) return { x: 0, y: 0 };
+    if (cellKey.endsWith('-1')) return getCornerOffset();
+    return { x: 0, y: 0 };
+  };
 
   const handleDragStart = (e) => {
     e.preventDefault();
@@ -695,7 +709,7 @@ function UploadableImage({
       const posLabel = gridToLabel[item.pos] || item.pos;
       const plainText = item.text;
       const html = buildStyledHtml(item.text, item);
-      await onSaveText(plainText, html, posLabel, item.service, item.place);
+      await onSaveText(plainText, html, posLabel);
     } else {
       setLsOverlay(item);
       if (overlayKey) localStorage.setItem(overlayKey, JSON.stringify(item));
@@ -751,8 +765,8 @@ function UploadableImage({
   const handleTextClick = (e) => {
     e.stopPropagation();
     setMenuOpen(false);
-    setDragOffset({ x: 0, y: 0 });
     if (isTestimonial) {
+      setDragOffset({ x: 0, y: 0 });
       const td = testimonialData || {};
       const rawQ = quoteText !== undefined && quoteText !== null ? quoteText : td.quote_text;
       const rawA = quoteAuthor !== undefined && quoteAuthor !== null ? quoteAuthor : td.quote_author;
@@ -786,6 +800,7 @@ function UploadableImage({
         setItalic(!!overlay.italic);
         setUnderline(!!overlay.underline);
       }
+      setDragOffset(getOffsetForCell(overlay.pos));
     } else {
       setEditText('');
       setSelectedCell(null);
@@ -795,9 +810,8 @@ function UploadableImage({
       setBold(true);
       setItalic(false);
       setUnderline(false);
+      setDragOffset({ x: 0, y: 0 });
     }
-    setEditService(imageService || '');
-    setEditPlace(imagePlace || '');
     setErrors({});
     setEditOpen(true);
   };
@@ -809,8 +823,9 @@ function UploadableImage({
   };
 
   const handleConfirmDeleteText = async () => {
-    await clearOverlay();
     setDeleteTextOpen(false);
+    setLoadingMsg('Deleting…');
+    try { await clearOverlay(); } finally { setLoadingMsg(null); }
   };
 
   const handleMoveClick = (e) => {
@@ -823,8 +838,11 @@ function UploadableImage({
   const handleDeleteClick = async (e) => {
     e.stopPropagation();
     setMenuOpen(false);
-    await clearOverlay();
-    if (onDelete) onDelete();
+    setLoadingMsg(isTestimonial ? 'Deleting testimonial…' : 'Deleting image…');
+    try {
+      await clearOverlay();
+      if (onDelete) await onDelete();
+    } finally { setLoadingMsg(null); }
   };
 
   const handleApply = async () => {
@@ -834,34 +852,36 @@ function UploadableImage({
       if (!editAuthor.trim()) errs.name = 'Please enter a name';
       if (Object.keys(errs).length) { setErrors(errs); return; }
       setErrors({});
-      if (onSaveQuote) {
-        onSaveQuote(editQuote.trim(), editAuthor.trim(), editService.trim(), editPlace.trim());
-      } else if (onSaveTestimonial) {
-        onSaveTestimonial(editQuote.trim(), editAuthor.trim(), editService.trim(), editPlace.trim());
-      }
       setEditOpen(false);
+      setLoadingMsg('Saving testimonial…');
+      try {
+        if (onSaveQuote) {
+          await onSaveQuote(editQuote.trim(), editAuthor.trim(), editService.trim(), editPlace.trim());
+        } else if (onSaveTestimonial) {
+          await onSaveTestimonial(editQuote.trim(), editAuthor.trim(), editService.trim(), editPlace.trim());
+        }
+      } finally { setLoadingMsg(null); }
       return;
     }
     const errs = {};
-    const hasTextInput = editText.trim().length > 0;
-    const hasServicePlace = editService.trim().length > 0 || editPlace.trim().length > 0;
-    if (!hasTextInput && !hasServicePlace) errs.text = 'Please enter text or service/place';
-    if (hasTextInput && !selectedCell) errs.position = 'Please select a position';
+    if (!editText.trim()) errs.text = 'Please enter text';
+    if (editText.trim() && !selectedCell) errs.position = 'Please select a position';
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
-    await saveOverlay({
-      pos: selectedCell || '2-1',
-      text: editText.trim(),
-      fontSize,
-      fontFamily,
-      fontColor,
-      bold,
-      italic,
-      underline,
-      service: editService.trim(),
-      place: editPlace.trim(),
-    });
     setEditOpen(false);
+    setLoadingMsg('Saving…');
+    try {
+      await saveOverlay({
+        pos: selectedCell || '2-1',
+        text: editText.trim(),
+        fontSize,
+        fontFamily,
+        fontColor,
+        bold,
+        italic,
+        underline,
+      });
+    } finally { setLoadingMsg(null); }
   };
 
   const handleQuoteApply = async () => {
@@ -870,17 +890,20 @@ function UploadableImage({
     if (!editAuthor.trim()) errs.name = 'Please enter a name';
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
-    if (onSaveQuote) {
-      await onSaveQuote(editQuote.trim(), editAuthor.trim(), editService.trim(), editPlace.trim());
-    } else if (onSaveTestimonial) {
-      await onSaveTestimonial(
-        `\u201c${editQuote.trim()}\u201d`,
-        `-${editAuthor.trim()}`,
-        editService.trim() || null,
-        editPlace.trim() || null,
-      );
-    }
     setEditOpen(false);
+    setLoadingMsg('Saving testimonial…');
+    try {
+      if (onSaveQuote) {
+        await onSaveQuote(editQuote.trim(), editAuthor.trim(), editService.trim(), editPlace.trim());
+      } else if (onSaveTestimonial) {
+        await onSaveTestimonial(
+          `\u201c${editQuote.trim()}\u201d`,
+          `-${editAuthor.trim()}`,
+          editService.trim() || null,
+          editPlace.trim() || null,
+        );
+      }
+    } finally { setLoadingMsg(null); }
   };
 
   const handleFile = async (e) => {
@@ -894,8 +917,6 @@ function UploadableImage({
     setUploadDesc(analysis.description);
     setUploadPreviewUrl(analysis.previewUrl);
     setUploadInfo(analysis.description);
-    setUploadService('');
-    setUploadPlace('');
     setUploadModalOpen(true);
   };
 
@@ -907,8 +928,6 @@ function UploadableImage({
     formData.append('image', pendingFile);
     formData.append('title', uploadTitle.trim());
     formData.append('description', uploadDesc.trim());
-    formData.append('image_service', uploadService.trim());
-    formData.append('image_place', uploadPlace.trim());
     try {
       const endpoint = uploadUrl || '/api/upload';
       const res = await fetch(endpoint, { method: 'POST', body: formData });
@@ -958,13 +977,13 @@ function UploadableImage({
       $slideDistance={wrapperRef.current ? Math.round(wrapperRef.current.offsetWidth * 0.6) : 200}
     >
       {children}
-      {uploading && (
+      {(uploading || loadingMsg) && (
         <LoadingOverlay>
           <Spinner />
-          <LoadingLabel>Uploading…</LoadingLabel>
+          <LoadingLabel>{loadingMsg || 'Uploading…'}</LoadingLabel>
         </LoadingOverlay>
       )}
-      {overlay && pos && (
+      {overlay && pos && !(editOpen && !isTestimonial) && (
         <TextOverlay>
           {overlay.html ? (
             <OverlayText
@@ -1016,7 +1035,7 @@ function UploadableImage({
           {!hasImage ? (
             <MenuItem onClick={handleReplaceClick}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              Add Image
+              {isTestimonial ? 'Add Testimonial' : 'Add Image'}
             </MenuItem>
           ) : (
             <>
@@ -1039,12 +1058,12 @@ function UploadableImage({
               {canMove && (
                 <MenuItem onClick={handleMoveClick}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><polyline points="5 9 2 12 5 15"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
-                  Move Image
+                  {isTestimonial ? 'Move Testimonial' : 'Move Image'}
                 </MenuItem>
               )}
               <MenuItem onClick={handleDeleteClick} $danger>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                Delete Image
+                {isTestimonial ? 'Delete Testimonial' : 'Delete Image'}
               </MenuItem>
             </>
           )}
@@ -1167,7 +1186,7 @@ function UploadableImage({
                   </Preview>
                 )}
 
-                <GridLabel>Click a position — drag the bar above to slide this panel</GridLabel>
+                <GridLabel>Select where text appears on the image</GridLabel>
                 <Grid $error={!!errors.position}>
                   {[0, 1, 2].map(row =>
                     [0, 1, 2].map(col => {
@@ -1179,11 +1198,7 @@ function UploadableImage({
                             const next = key === selectedCell ? null : key;
                             setSelectedCell(next);
                             if (errors.position) setErrors(p => ({ ...p, position: '' }));
-                            if (next && next.endsWith('-1')) {
-                              setDragOffset(prev => ({ ...prev, x: -Math.round(window.innerWidth * 0.28) }));
-                            } else {
-                              setDragOffset({ x: 0, y: 0 });
-                            }
+                            setDragOffset(getOffsetForCell(next));
                           }}
                           $selected={selectedCell === key}
                           title={cellLabels[row][col]}
@@ -1196,22 +1211,6 @@ function UploadableImage({
                 </Grid>
                 {errors.position && <ErrorMsg>{errors.position}</ErrorMsg>}
 
-                {imageService !== undefined && (
-                  <div style={{ borderTop: '1px solid #e0e0e0', marginTop: 16, paddingTop: 12 }}>
-                    <FieldLabel>Service <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FieldLabel>
-                    <EditInput
-                      placeholder="e.g. Photography, Disc Jockey..."
-                      value={editService}
-                      onChange={(e) => setEditService(e.target.value)}
-                    />
-                    <FieldLabel>Place <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FieldLabel>
-                    <EditInput
-                      placeholder="e.g. Chicago, IL"
-                      value={editPlace}
-                      onChange={(e) => setEditPlace(e.target.value)}
-                    />
-                  </div>
-                )}
 
                 <BtnRow>
                   <ApplyBtn onClick={handleApply}>
@@ -1286,22 +1285,6 @@ function UploadableImage({
               value={uploadDesc}
               onChange={(e) => setUploadDesc(e.target.value)}
             />
-            {!(uploadUrl || '').includes('hero') && (
-              <>
-                <FieldLabel>Service <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FieldLabel>
-                <EditInput
-                  placeholder="e.g. Photography, Disc Jockey..."
-                  value={uploadService}
-                  onChange={(e) => setUploadService(e.target.value)}
-                />
-                <FieldLabel>Place <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span></FieldLabel>
-                <EditInput
-                  placeholder="e.g. Chicago, IL"
-                  value={uploadPlace}
-                  onChange={(e) => setUploadPlace(e.target.value)}
-                />
-              </>
-            )}
             <div style={{ marginTop: 14 }} />
             <BtnRow>
               <ApplyBtn onClick={handleConfirmUpload}>Upload</ApplyBtn>

@@ -88,11 +88,34 @@ function extractPublicId(url) {
 async function archiveInCloudinary(url) {
   const publicId = extractPublicId(url);
   if (!publicId) return;
-  const filename = publicId.split('/').pop();
-  const archiveId = `${CLOUD_ROOT}/archive/${filename}`;
   try {
-    await cloudinary.uploader.rename(publicId, archiveId, { overwrite: true });
-    console.log('Cloudinary archived:', publicId, '->', archiveId);
+    const source = await cloudinary.api.resource(publicId);
+
+    const archivePrefix = `${CLOUD_ROOT}/archive`;
+    let duplicateFound = false;
+    let nextCursor = undefined;
+    do {
+      const opts = { type: 'upload', prefix: archivePrefix, max_results: 500 };
+      if (nextCursor) opts.next_cursor = nextCursor;
+      const listing = await cloudinary.api.resources(opts);
+      if (listing.resources.some(r =>
+        r.bytes === source.bytes && r.width === source.width && r.height === source.height
+      )) {
+        duplicateFound = true;
+        break;
+      }
+      nextCursor = listing.next_cursor;
+    } while (nextCursor);
+
+    if (duplicateFound) {
+      await cloudinary.uploader.destroy(publicId);
+      console.log('Cloudinary deleted (duplicate already in archive):', publicId);
+    } else {
+      const filename = publicId.split('/').pop();
+      const archiveId = `${CLOUD_ROOT}/archive/${filename}`;
+      await cloudinary.uploader.rename(publicId, archiveId, { overwrite: true });
+      console.log('Cloudinary archived:', publicId, '->', archiveId);
+    }
   } catch (err) {
     console.error('Cloudinary archive failed:', err.message);
   }
