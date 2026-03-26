@@ -104,14 +104,12 @@ const Dot = styled.span`
 `;
 
 const CtxMenu = styled.div`
-  position: absolute;
-  top: 40px;
-  right: 8px;
-  z-index: 15;
+  position: fixed;
+  z-index: 9999;
   background: #fff;
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-  min-width: 160px;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  min-width: 180px;
   overflow: hidden;
 `;
 
@@ -755,7 +753,9 @@ function UploadableImage({
 
   const fileRef = useRef(null);
   const menuRef = useRef(null);
+  const kebabRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
   const [uploading, setUploading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -904,7 +904,14 @@ function UploadableImage({
     return () => { clearTimeout(t1); clearTimeout(t2); setShowDragTip(false); setHidingDragTip(false); };
   }, [editOpen, isTestimonial]);
 
-  const toggleMenu = (e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(p => !p); };
+  const toggleMenu = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!menuOpen && kebabRef.current) {
+      const r = kebabRef.current.getBoundingClientRect();
+      setMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    }
+    setMenuOpen(p => !p);
+  };
 
   const handleReplaceClick = (e) => { e.stopPropagation(); setMenuOpen(false); fileRef.current.click(); };
 
@@ -1184,12 +1191,12 @@ function UploadableImage({
         </TextOverlay>
       )}
       {adminMode && (
-        <KebabBtn onClick={toggleMenu} title="Image options">
+        <KebabBtn ref={kebabRef} onClick={toggleMenu} title="Image options">
           {uploading ? <span style={{ fontSize: 12 }}>…</span> : <><Dot /><Dot /><Dot /></>}
         </KebabBtn>
       )}
       {adminMode && menuOpen && (
-        <CtxMenu ref={menuRef}>
+        <CtxMenu ref={menuRef} style={{ top: menuPos.top, right: menuPos.right }}>
           {!hasImage ? (
             <MenuItem onClick={handleReplaceClick}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
