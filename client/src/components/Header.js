@@ -5,22 +5,23 @@ const StyledHeader = styled.header`
   position: sticky;
   top: 0;
   z-index: 100;
-  width: 100%;
+  width: 100vw;
   max-width: 100vw;
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
   height: 72px;
-  overflow-x: hidden;
-  overflow-y: visible;
+  overflow: hidden;
 `;
 
 const Container = styled.div`
   width: 100%;
+  max-width: 100vw;
   height: 100%;
   padding: 0 40px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
 
   @media (max-width: 639px) {
     padding: 0 16px;
@@ -40,6 +41,7 @@ const LogoLink = styled.button`
 const LogoImg = styled.img`
   height: 72px;
   width: auto;
+  max-width: calc(100vw - 80px);
   object-fit: contain;
 `;
 
@@ -62,9 +64,14 @@ const HamburgerBtn = styled.button`
   justify-content: center;
   align-items: center;
   gap: 5px;
+  flex-shrink: 0;
 
   @media (max-width: 639px) {
     display: flex;
+    position: fixed;
+    top: 22px;
+    right: 16px;
+    z-index: 101;
   }
 `;
 
