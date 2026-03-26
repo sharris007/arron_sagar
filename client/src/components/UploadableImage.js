@@ -248,23 +248,82 @@ const PreviewBadge = styled.div`
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 `;
 
-const DragHandle = styled.div`
+const PanelHeader = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  position: relative;
+`;
+
+const DragIconBtn = styled.div`
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 0 4px;
   cursor: grab;
   user-select: none;
-  &:active { cursor: grabbing; }
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+  &:hover { background: rgba(0, 56, 99, 0.08); }
+  &:active { cursor: grabbing; background: rgba(0, 56, 99, 0.14); }
+
+  @media (max-width: 639px) {
+    width: 24px;
+    height: 24px;
+  }
 `;
 
-const DragGrip = styled.div`
-  width: 40px;
-  height: 5px;
-  border-radius: 3px;
-  background: #ccc;
-  transition: background 0.2s;
-  ${DragHandle}:hover & { background: #999; }
+const MoveArrowSvg = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2l3 3h-2v5h5V8l3 3-3 3v-2h-5v5h2l-3 3-3-3h2v-5H5v2l-3-3 3-3v2h5V5H8l4-3z" fill="#999"/>
+  </svg>
+);
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const fadeOut = keyframes`
+  from { opacity: 1; }
+  to { opacity: 0; }
+`;
+
+const DragTooltip = styled.div`
+  position: absolute;
+  top: 36px;
+  left: 0;
+  background: #003863;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  animation: ${({ $hiding }) => $hiding ? fadeOut : fadeIn} ${({ $hiding }) => $hiding ? '0.3s' : '0.35s'} ease forwards;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 12px;
+    width: 10px;
+    height: 10px;
+    background: #003863;
+    transform: rotate(45deg);
+    border-radius: 2px 0 0 0;
+  }
+
+  @media (max-width: 639px) {
+    font-size: 10px;
+    padding: 5px 10px;
+    top: 32px;
+  }
 `;
 
 const EditTitle = styled.h3`
@@ -726,6 +785,8 @@ function UploadableImage({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef(null);
+  const [showDragTip, setShowDragTip] = useState(false);
+  const [hidingDragTip, setHidingDragTip] = useState(false);
 
   const getCornerOffset = () => {
     return { x: 0, y: 0 };
@@ -813,11 +874,31 @@ function UploadableImage({
   }, [menuOpen]);
 
   useEffect(() => {
-    if (menuOpen || editOpen || deleteTextOpen || uploadModalOpen) {
-      document.documentElement.style.overflowY = 'hidden';
-      return () => { document.documentElement.style.overflowY = ''; };
-    }
+    if (!(menuOpen || editOpen || deleteTextOpen || uploadModalOpen)) return;
+    const stop = (e) => {
+      if (e.target.closest && e.target.closest('[data-scrollable]')) return;
+      e.preventDefault();
+    };
+    window.addEventListener('wheel', stop, { passive: false });
+    window.addEventListener('touchmove', stop, { passive: false });
+    return () => {
+      window.removeEventListener('wheel', stop);
+      window.removeEventListener('touchmove', stop);
+    };
   }, [menuOpen, editOpen, deleteTextOpen, uploadModalOpen]);
+
+  useEffect(() => {
+    if (!editOpen || isTestimonial) return;
+    const key = 'aaronapp_drag_tip_shown';
+    if (localStorage.getItem(key)) return;
+    const t1 = setTimeout(() => setShowDragTip(true), 600);
+    const t2 = setTimeout(() => {
+      setHidingDragTip(true);
+      setTimeout(() => { setShowDragTip(false); setHidingDragTip(false); }, 350);
+    }, 4500);
+    localStorage.setItem(key, '1');
+    return () => { clearTimeout(t1); clearTimeout(t2); setShowDragTip(false); setHidingDragTip(false); };
+  }, [editOpen, isTestimonial]);
 
   const toggleMenu = (e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(p => !p); };
 
@@ -1164,7 +1245,7 @@ function UploadableImage({
       {editOpen && (
         <EditModal $dragging={isDragging} onClick={() => { if (!previewMode) { setEditOpen(false); setDragOffset({ x: 0, y: 0 }); } }}>
           {previewMode && <PreviewBadge>Previewing text position…</PreviewBadge>}
-          <EditPanel onClick={(e) => e.stopPropagation()} $noDragTransition={isDragging} $preview={previewMode} style={{ transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` }}>
+          <EditPanel data-scrollable onClick={(e) => e.stopPropagation()} $noDragTransition={isDragging} $preview={previewMode} style={{ transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` }}>
             {isTestimonial ? (
               <>
                 <EditTitle>Edit Testimonial</EditTitle>
@@ -1208,10 +1289,13 @@ function UploadableImage({
               </>
             ) : (
               <>
-                <DragHandle onMouseDown={handleDragStart} onTouchStart={handleDragStart}>
-                  <DragGrip />
-                </DragHandle>
-                <EditTitle>{hasText ? 'Edit Text' : 'Add Text to Image'}</EditTitle>
+                <PanelHeader>
+                  <DragIconBtn onMouseDown={handleDragStart} onTouchStart={handleDragStart} title="Drag to move">
+                    <MoveArrowSvg />
+                  </DragIconBtn>
+                  <EditTitle style={{ flex: 1, marginBottom: 0 }}>{hasText ? 'Edit Text' : 'Add Text to Image'}</EditTitle>
+                  {showDragTip && <DragTooltip $hiding={hidingDragTip}>Hold &amp; drag to move this panel</DragTooltip>}
+                </PanelHeader>
                 <EditInput
                   placeholder="Type your text here..."
                   value={editText}
@@ -1293,7 +1377,7 @@ function UploadableImage({
       )}
       {deleteTextOpen && overlay && (
         <EditModal onClick={() => setDeleteTextOpen(false)}>
-          <EditPanel onClick={(e) => e.stopPropagation()}>
+          <EditPanel data-scrollable onClick={(e) => e.stopPropagation()}>
             <EditTitle>Delete Text?</EditTitle>
             <p style={{
               fontFamily: "'Inter', sans-serif",
@@ -1336,7 +1420,7 @@ function UploadableImage({
       )}
       {uploadModalOpen && (
         <EditModal onClick={handleCancelUpload}>
-          <EditPanel onClick={(e) => e.stopPropagation()}>
+          <EditPanel data-scrollable onClick={(e) => e.stopPropagation()}>
             <EditTitle>Upload Image</EditTitle>
             {uploadPreviewUrl && <PreviewImg src={uploadPreviewUrl} alt="Preview" />}
             <ImageInfoText>{uploadInfo}</ImageInfoText>

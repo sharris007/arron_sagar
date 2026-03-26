@@ -381,10 +381,17 @@ function Header({ onLoginClick, isAdmin, onAdminToggle }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (modalOpen) {
-      document.documentElement.style.overflowY = 'hidden';
-      return () => { document.documentElement.style.overflowY = ''; };
-    }
+    if (!modalOpen) return;
+    const stop = (e) => {
+      if (e.target.closest && e.target.closest('[data-scrollable]')) return;
+      e.preventDefault();
+    };
+    window.addEventListener('wheel', stop, { passive: false });
+    window.addEventListener('touchmove', stop, { passive: false });
+    return () => {
+      window.removeEventListener('wheel', stop);
+      window.removeEventListener('touchmove', stop);
+    };
   }, [modalOpen]);
 
   useEffect(() => {
@@ -438,7 +445,7 @@ function Header({ onLoginClick, isAdmin, onAdminToggle }) {
         <Overlay onClick={() => setModalOpen(false)}>
           <ModalOuter>
             <CloseBtn onClick={() => setModalOpen(false)}>&times;</CloseBtn>
-            <ModalCard onClick={e => e.stopPropagation()}>
+            <ModalCard data-scrollable onClick={e => e.stopPropagation()}>
               <ModalImageWrap>
                 <ModalImage src={`${process.env.PUBLIC_URL}/images/system_images/aaron_it_out_large.png`} alt="Aaron Sager" />
               </ModalImageWrap>
