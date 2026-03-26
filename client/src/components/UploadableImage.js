@@ -805,6 +805,7 @@ function UploadableImage({
     dragStartRef.current = { x: clientX - dragOffset.x, y: clientY - dragOffset.y };
     setIsDragging(true);
     const handleDragMove = (ev) => {
+      ev.preventDefault();
       const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
       const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
       setDragOffset({ x: cx - dragStartRef.current.x, y: cy - dragStartRef.current.y });
