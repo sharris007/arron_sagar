@@ -815,21 +815,15 @@ function UploadableImage({
   useEffect(() => {
     if (menuOpen || editOpen || deleteTextOpen || uploadModalOpen) {
       const scrollbarW = window.innerWidth - document.documentElement.clientWidth;
-      const scrollY = window.scrollY;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-      document.body.style.overflow = 'hidden';
+      const prev = document.documentElement.style.overflow;
       document.documentElement.style.overflow = 'hidden';
-      if (scrollbarW > 0) document.body.style.paddingRight = `${scrollbarW}px`;
+      if (scrollbarW > 0) document.documentElement.style.paddingRight = `${scrollbarW}px`;
+      const stop = (e) => { if (e.target === document.documentElement || e.target === document.body) e.preventDefault(); };
+      document.addEventListener('touchmove', stop, { passive: false });
       return () => {
-        document.body.style.position = '';
-        document.body.style.top = '';
-        document.body.style.width = '';
-        document.body.style.overflow = '';
-        document.documentElement.style.overflow = '';
-        document.body.style.paddingRight = '';
-        window.scrollTo(0, scrollY);
+        document.documentElement.style.overflow = prev;
+        document.documentElement.style.paddingRight = '';
+        document.removeEventListener('touchmove', stop);
       };
     }
   }, [menuOpen, editOpen, deleteTextOpen, uploadModalOpen]);
