@@ -893,7 +893,14 @@ function UploadableImage({
   }, [menuOpen]);
 
   useEffect(() => {
-    if (!(menuOpen || editOpen || deleteTextOpen || uploadModalOpen)) return;
+    if (!(menuOpen || editOpen || deleteTextOpen || uploadModalOpen)) {
+      requestAnimationFrame(() => {
+        if (window.scrollX !== 0) window.scrollTo(0, window.scrollY);
+        document.documentElement.scrollLeft = 0;
+        document.body.scrollLeft = 0;
+      });
+      return;
+    }
     const stop = (e) => {
       if (e.target.closest && e.target.closest('[data-scrollable]')) return;
       e.preventDefault();
@@ -903,6 +910,11 @@ function UploadableImage({
     return () => {
       window.removeEventListener('wheel', stop);
       window.removeEventListener('touchmove', stop);
+      requestAnimationFrame(() => {
+        if (window.scrollX !== 0) window.scrollTo(0, window.scrollY);
+        document.documentElement.scrollLeft = 0;
+        document.body.scrollLeft = 0;
+      });
     };
   }, [menuOpen, editOpen, deleteTextOpen, uploadModalOpen]);
 

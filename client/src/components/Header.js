@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
 
 const StyledHeader = styled.header`
@@ -377,6 +377,28 @@ const ModalOuter = styled.div`
 function Header({ onLoginClick, isAdmin, onAdminToggle }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const hamburgerRef = useRef(null);
+
+  useEffect(() => {
+    const el = hamburgerRef.current;
+    if (!el) return;
+    const fix = () => {
+      if (window.scrollX !== 0) window.scrollTo(0, window.scrollY);
+      document.documentElement.scrollLeft = 0;
+      document.body.scrollLeft = 0;
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) fix();
+    }, { threshold: 0.9 });
+    observer.observe(el);
+    window.addEventListener('resize', fix);
+    window.addEventListener('app-rerender', fix);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', fix);
+      window.removeEventListener('app-rerender', fix);
+    };
+  }, []);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -419,7 +441,7 @@ function Header({ onLoginClick, isAdmin, onAdminToggle }) {
             <SignInBtn onClick={onLoginClick}>Sign In</SignInBtn>
           </Nav>
 
-          <HamburgerBtn onClick={() => setMenuOpen(prev => !prev)} aria-label="Toggle menu">
+          <HamburgerBtn ref={hamburgerRef} onClick={() => setMenuOpen(prev => !prev)} aria-label="Toggle menu">
             <HamburgerLine $open={menuOpen} />
             <HamburgerLine $open={menuOpen} />
             <HamburgerLine $open={menuOpen} />
