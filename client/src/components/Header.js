@@ -382,11 +382,14 @@ function Header({ onLoginClick, isAdmin, onAdminToggle }) {
 
   useEffect(() => {
     if (modalOpen) {
+      const scrollbarW = window.innerWidth - document.documentElement.clientWidth;
       document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
+      if (scrollbarW > 0) document.body.style.paddingRight = `${scrollbarW}px`;
+      return () => {
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      };
     }
-    return () => { document.body.style.overflow = ''; };
   }, [modalOpen]);
 
   useEffect(() => {
