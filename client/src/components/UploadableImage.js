@@ -1281,7 +1281,7 @@ function UploadableImage({
         </MovePopup>
       )}
       <HiddenInput ref={fileRef} type="file" accept="image/*" onChange={handleFile} />
-      {editOpen && (
+      {editOpen && ReactDOM.createPortal(
         <EditModal $dragging={isDragging} onClick={() => { if (!previewMode) { setEditOpen(false); setDragOffset({ x: 0, y: 0 }); } }}>
           {previewMode && <PreviewBadge>Previewing text position…</PreviewBadge>}
           <EditPanel data-scrollable onClick={(e) => e.stopPropagation()} $noDragTransition={isDragging} $preview={previewMode} style={{ transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` }}>
@@ -1412,9 +1412,10 @@ function UploadableImage({
               </>
             )}
           </EditPanel>
-        </EditModal>
+        </EditModal>,
+        document.body
       )}
-      {deleteTextOpen && overlay && (
+      {deleteTextOpen && overlay && ReactDOM.createPortal(
         <EditModal onClick={() => setDeleteTextOpen(false)}>
           <EditPanel data-scrollable onClick={(e) => e.stopPropagation()}>
             <EditTitle>Delete Text?</EditTitle>
@@ -1455,9 +1456,10 @@ function UploadableImage({
               <CancelBtn onClick={() => setDeleteTextOpen(false)}>Cancel</CancelBtn>
             </BtnRow>
           </EditPanel>
-        </EditModal>
+        </EditModal>,
+        document.body
       )}
-      {uploadModalOpen && (
+      {uploadModalOpen && ReactDOM.createPortal(
         <EditModal onClick={handleCancelUpload}>
           <EditPanel data-scrollable onClick={(e) => e.stopPropagation()}>
             <EditTitle style={{ fontSize: 13, marginBottom: 6 }}>Upload Image</EditTitle>
@@ -1484,7 +1486,8 @@ function UploadableImage({
               <CancelBtn onClick={handleCancelUpload}>Cancel</CancelBtn>
             </BtnRow>
           </EditPanel>
-        </EditModal>
+        </EditModal>,
+        document.body
       )}
     </Wrapper>
   );

@@ -1,16 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 
 const StyledHeader = styled.header`
   position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
   z-index: 100;
+  width: 100%;
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
-  height: calc(72px + env(safe-area-inset-top, 0px));
-  padding-top: env(safe-area-inset-top, 0px);
+  height: 72px;
   overflow: visible;
 `;
 
@@ -112,7 +110,7 @@ const MobileMenu = styled.div`
     display: flex;
     flex-direction: column;
     position: fixed;
-    top: calc(72px + env(safe-area-inset-top, 0px));
+    top: 72px;
     right: 0;
     width: 220px;
     background: #fff;
@@ -379,22 +377,6 @@ const ModalOuter = styled.div`
 function Header({ onLoginClick, isAdmin, onAdminToggle }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const headerRef = useRef(null);
-  const [, forceUpdate] = useState(0);
-
-  const fixLayout = useCallback(() => {
-    if (!headerRef.current) return;
-    const el = headerRef.current;
-    el.style.willChange = 'width';
-    void el.offsetWidth;
-    el.style.willChange = '';
-    forceUpdate(n => n + 1);
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('resize', fixLayout);
-    return () => window.removeEventListener('resize', fixLayout);
-  }, [fixLayout]);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -420,7 +402,7 @@ function Header({ onLoginClick, isAdmin, onAdminToggle }) {
 
   return (
     <>
-      <StyledHeader ref={headerRef}>
+      <StyledHeader>
         <Container>
           <LogoLink onClick={() => setModalOpen(true)}>
             <LogoImg src={`${process.env.PUBLIC_URL}/images/system_images/aaron_it_out_logo.png`} alt="Aaron It Out Photography" />
