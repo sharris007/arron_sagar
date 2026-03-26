@@ -814,17 +814,8 @@ function UploadableImage({
 
   useEffect(() => {
     if (menuOpen || editOpen || deleteTextOpen || uploadModalOpen) {
-      const scrollbarW = window.innerWidth - document.documentElement.clientWidth;
-      const prev = document.documentElement.style.overflow;
-      document.documentElement.style.overflow = 'hidden';
-      if (scrollbarW > 0) document.documentElement.style.paddingRight = `${scrollbarW}px`;
-      const stop = (e) => { if (e.target === document.documentElement || e.target === document.body) e.preventDefault(); };
-      document.addEventListener('touchmove', stop, { passive: false });
-      return () => {
-        document.documentElement.style.overflow = prev;
-        document.documentElement.style.paddingRight = '';
-        document.removeEventListener('touchmove', stop);
-      };
+      document.documentElement.style.overflowY = 'hidden';
+      return () => { document.documentElement.style.overflowY = ''; };
     }
   }, [menuOpen, editOpen, deleteTextOpen, uploadModalOpen]);
 
