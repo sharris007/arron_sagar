@@ -6,10 +6,12 @@ const StyledHeader = styled.header`
   top: 0;
   z-index: 100;
   width: 100%;
+  max-width: 100vw;
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
   height: 72px;
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: visible;
 `;
 
 const Container = styled.div`
