@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createGlobalStyle } from 'styled-components';
 import AdminContext from './AdminContext';
 import Header from './components/Header';
@@ -39,17 +39,28 @@ const GlobalStyle = createGlobalStyle`
 function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [renderKey, setRenderKey] = useState(0);
+
+  const handleRefresh = useCallback(() => setRenderKey(k => k + 1), []);
+
+  useEffect(() => {
+    window.addEventListener('app-rerender', handleRefresh);
+    return () => window.removeEventListener('app-rerender', handleRefresh);
+  }, [handleRefresh]);
+
   return (
     <AdminContext.Provider value={isAdmin}>
       <GlobalStyle />
-      <Header onLoginClick={() => setShowLogin(true)} isAdmin={isAdmin} onAdminToggle={() => setIsAdmin(a => !a)} />
-      <Hero />
-      <Services />
-      <Testimonials />
-      <FindProfessionals />
-      <AwardsBar />
-      <Footer />
-      <ChatBubble />
+      <div key={renderKey}>
+        <Header onLoginClick={() => setShowLogin(true)} isAdmin={isAdmin} onAdminToggle={() => setIsAdmin(a => !a)} />
+        <Hero />
+        <Services />
+        <Testimonials />
+        <FindProfessionals />
+        <AwardsBar />
+        <Footer />
+        <ChatBubble />
+      </div>
       {showLogin && <LoginPage onClose={() => setShowLogin(false)} />}
     </AdminContext.Provider>
   );

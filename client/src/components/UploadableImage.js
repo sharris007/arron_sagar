@@ -1028,7 +1028,7 @@ function UploadableImage({
       });
     } finally {
       setLoadingMsg(null);
-      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      requestAnimationFrame(() => window.dispatchEvent(new Event('app-rerender')));
     }
   };
 
