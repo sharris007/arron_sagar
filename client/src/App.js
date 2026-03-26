@@ -56,7 +56,7 @@ function App() {
   return (
     <AdminContext.Provider value={isAdmin}>
       <GlobalStyle />
-      <div key={renderKey}>
+      <div key={renderKey} style={{ width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
         <Header onLoginClick={() => setShowLogin(true)} isAdmin={isAdmin} onAdminToggle={() => setIsAdmin(a => !a)} />
         <Hero />
         <Services />

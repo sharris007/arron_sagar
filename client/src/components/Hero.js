@@ -4,6 +4,7 @@ import UploadableImage from './UploadableImage';
 
 const Section = styled.section`
   width: 100%;
+  max-width: 100vw;
   height: 829px;
   background-repeat: no-repeat;
   background-position: center;

@@ -61,9 +61,10 @@ const Wrapper = styled.div`
   position: relative;
   display: ${({ $display }) => $display || 'inline-block'};
   width: ${({ $width }) => $width || 'auto'};
+  max-width: 100vw;
   height: ${({ $height }) => $height || 'auto'};
   flex-shrink: ${({ $shrink }) => $shrink ?? 'initial'};
-  overflow: visible;
+  overflow: hidden;
   transition: ${({ $animating }) => $animating ? 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1)' : 'none'};
   transform: ${({ $slideDir, $slideDistance }) =>
     $slideDir === 'left' ? `translateX(-${$slideDistance}px) scale(1.08)` :
