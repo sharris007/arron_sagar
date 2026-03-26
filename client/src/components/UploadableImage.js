@@ -967,7 +967,7 @@ function UploadableImage({
   const handleConfirmDeleteText = async () => {
     setDeleteTextOpen(false);
     setLoadingMsg('Deleting…');
-    try { await clearOverlay(); } finally { setLoadingMsg(null); }
+    try { await clearOverlay(); } finally { setLoadingMsg(null); requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); }
   };
 
   const handleMoveClick = (e) => {
@@ -984,7 +984,7 @@ function UploadableImage({
     try {
       await clearOverlay();
       if (onDelete) await onDelete();
-    } finally { setLoadingMsg(null); }
+    } finally { setLoadingMsg(null); requestAnimationFrame(() => window.dispatchEvent(new Event('resize'))); }
   };
 
   const handleApply = async () => {
@@ -1002,7 +1002,10 @@ function UploadableImage({
         } else if (onSaveTestimonial) {
           await onSaveTestimonial(editQuote.trim(), editAuthor.trim(), editService.trim(), editPlace.trim());
         }
-      } finally { setLoadingMsg(null); }
+      } finally {
+        setLoadingMsg(null);
+        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      }
       return;
     }
     const errs = {};
@@ -1023,7 +1026,10 @@ function UploadableImage({
         italic,
         underline,
       });
-    } finally { setLoadingMsg(null); }
+    } finally {
+      setLoadingMsg(null);
+      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    }
   };
 
   const handleQuoteApply = async () => {
@@ -1045,7 +1051,10 @@ function UploadableImage({
           editPlace.trim() || null,
         );
       }
-    } finally { setLoadingMsg(null); }
+    } finally {
+      setLoadingMsg(null);
+      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    }
   };
 
   const handleFile = async (e) => {

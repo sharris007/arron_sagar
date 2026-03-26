@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled, { keyframes } from 'styled-components';
 
 const StyledHeader = styled.header`
@@ -379,6 +379,22 @@ const ModalOuter = styled.div`
 function Header({ onLoginClick, isAdmin, onAdminToggle }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const headerRef = useRef(null);
+  const [, forceUpdate] = useState(0);
+
+  const fixLayout = useCallback(() => {
+    if (!headerRef.current) return;
+    const el = headerRef.current;
+    el.style.willChange = 'width';
+    void el.offsetWidth;
+    el.style.willChange = '';
+    forceUpdate(n => n + 1);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('resize', fixLayout);
+    return () => window.removeEventListener('resize', fixLayout);
+  }, [fixLayout]);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -404,7 +420,7 @@ function Header({ onLoginClick, isAdmin, onAdminToggle }) {
 
   return (
     <>
-      <StyledHeader>
+      <StyledHeader ref={headerRef}>
         <Container>
           <LogoLink onClick={() => setModalOpen(true)}>
             <LogoImg src={`${process.env.PUBLIC_URL}/images/system_images/aaron_it_out_logo.png`} alt="Aaron It Out Photography" />
