@@ -591,19 +591,22 @@ const LoadingLabel = styled.span`
 
 const PreviewImg = styled.img`
   max-width: 100%;
-  max-height: 180px;
+  max-height: 120px;
   object-fit: contain;
-  border-radius: 8px;
-  margin: 0 auto 12px;
+  border-radius: 6px;
+  margin: 0 auto 6px;
   display: block;
 `;
 
 const ImageInfoText = styled.p`
   font-family: 'Inter', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   color: #999;
   text-align: center;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const EditTextarea = styled.textarea`
@@ -623,11 +626,11 @@ const EditTextarea = styled.textarea`
 
 const FieldLabel = styled.label`
   font-family: 'Inter', sans-serif;
-  font-size: 12px;
+  font-size: ${({ $compact }) => $compact ? '10px' : '12px'};
   color: #666;
   display: block;
-  margin-bottom: 4px;
-  margin-top: 10px;
+  margin-bottom: ${({ $compact }) => $compact ? '2px' : '4px'};
+  margin-top: ${({ $compact }) => $compact ? '6px' : '10px'};
   text-transform: uppercase;
   letter-spacing: 0.5px;
 `;
@@ -1431,23 +1434,25 @@ function UploadableImage({
       {uploadModalOpen && (
         <EditModal onClick={handleCancelUpload}>
           <EditPanel data-scrollable onClick={(e) => e.stopPropagation()}>
-            <EditTitle>Upload Image</EditTitle>
+            <EditTitle style={{ fontSize: 13, marginBottom: 6 }}>Upload Image</EditTitle>
             {uploadPreviewUrl && <PreviewImg src={uploadPreviewUrl} alt="Preview" />}
             <ImageInfoText>{uploadInfo}</ImageInfoText>
-            <FieldLabel>Title</FieldLabel>
+            <FieldLabel $compact>Title</FieldLabel>
             <EditInput
               placeholder="Image title..."
               value={uploadTitle}
               onChange={(e) => setUploadTitle(e.target.value)}
+              style={{ padding: '6px 8px', fontSize: 12 }}
               autoFocus
             />
-            <FieldLabel>Description</FieldLabel>
-            <EditTextarea
+            <FieldLabel $compact>Description</FieldLabel>
+            <EditInput
               placeholder="Image description..."
               value={uploadDesc}
               onChange={(e) => setUploadDesc(e.target.value)}
+              style={{ padding: '6px 8px', fontSize: 12 }}
             />
-            <div style={{ marginTop: 14 }} />
+            <div style={{ marginTop: 8 }} />
             <BtnRow>
               <ApplyBtn onClick={handleConfirmUpload}>Upload</ApplyBtn>
               <CancelBtn onClick={handleCancelUpload}>Cancel</CancelBtn>
