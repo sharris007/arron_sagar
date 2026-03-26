@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import styled, { keyframes, css } from 'styled-components';
 import { useAdmin } from '../AdminContext';
 
@@ -103,6 +104,13 @@ const Dot = styled.span`
   border-radius: 50%;
 `;
 
+const MenuBackdrop = styled.div`
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 9998;
+  background: rgba(0, 0, 0, 0.35);
+`;
+
 const CtxMenu = styled.div`
   position: fixed;
   z-index: 9999;
@@ -111,6 +119,13 @@ const CtxMenu = styled.div`
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   min-width: 180px;
   overflow: hidden;
+
+  @media (max-width: 639px) {
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translate(-50%, -50%);
+  }
 `;
 
 const MenuItem = styled.button`
@@ -1195,44 +1210,48 @@ function UploadableImage({
           {uploading ? <span style={{ fontSize: 12 }}>…</span> : <><Dot /><Dot /><Dot /></>}
         </KebabBtn>
       )}
-      {adminMode && menuOpen && (
-        <CtxMenu ref={menuRef} style={{ top: menuPos.top, right: menuPos.right }}>
-          {!hasImage ? (
-            <MenuItem onClick={handleReplaceClick}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              {isTestimonial ? 'Add Testimonial' : 'Add Image'}
-            </MenuItem>
-          ) : (
-            <>
-              {!isTestimonial && (
-                <MenuItem onClick={handleReplaceClick}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  Replace Image
-                </MenuItem>
-              )}
-              <MenuItem onClick={handleTextClick}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                {isTestimonial ? 'Edit Testimonial' : (hasText ? 'Edit Text' : 'Add Text')}
+      {adminMode && menuOpen && ReactDOM.createPortal(
+        <>
+          <MenuBackdrop onClick={() => setMenuOpen(false)} />
+          <CtxMenu ref={menuRef} style={{ top: menuPos.top, right: menuPos.right }}>
+            {!hasImage ? (
+              <MenuItem onClick={handleReplaceClick}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                {isTestimonial ? 'Add Testimonial' : 'Add Image'}
               </MenuItem>
-              {(hasText && !isTestimonial) && (
-                <MenuItem onClick={handleDeleteTextClick} $danger>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/><line x1="1" y1="1" x2="23" y2="23" strokeLinecap="round"/></svg>
-                  Delete Text
+            ) : (
+              <>
+                {!isTestimonial && (
+                  <MenuItem onClick={handleReplaceClick}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Replace Image
+                  </MenuItem>
+                )}
+                <MenuItem onClick={handleTextClick}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  {isTestimonial ? 'Edit Testimonial' : (hasText ? 'Edit Text' : 'Add Text')}
                 </MenuItem>
-              )}
-              {canMove && (
-                <MenuItem onClick={handleMoveClick}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><polyline points="5 9 2 12 5 15"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
-                  {isTestimonial ? 'Move Testimonial' : 'Move Image'}
+                {(hasText && !isTestimonial) && (
+                  <MenuItem onClick={handleDeleteTextClick} $danger>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/><line x1="1" y1="1" x2="23" y2="23" strokeLinecap="round"/></svg>
+                    Delete Text
+                  </MenuItem>
+                )}
+                {canMove && (
+                  <MenuItem onClick={handleMoveClick}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#003863" strokeWidth="2"><polyline points="5 9 2 12 5 15"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                    {isTestimonial ? 'Move Testimonial' : 'Move Image'}
+                  </MenuItem>
+                )}
+                <MenuItem onClick={handleDeleteClick} $danger>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                  {isTestimonial ? 'Delete Testimonial' : 'Delete Image'}
                 </MenuItem>
-              )}
-              <MenuItem onClick={handleDeleteClick} $danger>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                {isTestimonial ? 'Delete Testimonial' : 'Delete Image'}
-              </MenuItem>
-            </>
-          )}
-        </CtxMenu>
+              </>
+            )}
+          </CtxMenu>
+        </>,
+        document.body
       )}
       {moveMode && canMove && !slideAnim && (
         <MovePopup>
